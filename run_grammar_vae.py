@@ -3,7 +3,7 @@ import torch.utils.data
 import torch.optim as optim
 from torch.autograd import Variable
 
-from model import GrammarVariationalAutoEncoder, VAELoss
+from models.grammar_vae_model import GrammarVariationalAutoEncoder, VAELoss
 
 from visdom_helper.visdom_helper import Dashboard
 
@@ -87,3 +87,4 @@ for epoch in range(1, EPOCHS + 1):
     losses += sess.train(train_loader, epoch)
     print('epoch {} complete'.format(epoch))
     sess.test(test_loader)
+

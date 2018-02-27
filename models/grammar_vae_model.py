@@ -5,6 +5,7 @@ import torch.nn.functional as F
 
 
 class Decoder(nn.Module):
+    # implementation matches model_eq.py _buildDecoder, at least in intent
     def __init__(self, input_size=200, hidden_n=200, output_feature_size=12, max_seq_length=15):
         super(Decoder, self).__init__()
         self.max_seq_length = max_seq_length
@@ -29,6 +30,7 @@ class Decoder(nn.Module):
         out_1, hidden_1 = self.gru_1(embedded, hidden_1)
         out_2, hidden_2 = self.gru_2(out_1, hidden_2)
         # NOTE: need to combine the input from previous layer with the expected output during training.
+        # NOTE: this bit is not in the Keras GrammarVAE code
         if self.training and target_seq:
             out_2 = out_2 * (1 - beta) + target_seq * beta
         out_3, hidden_3 = self.gru_3(out_2, hidden_3)
@@ -75,6 +77,7 @@ from visdom_helper.visdom_helper import Dashboard
 
 
 class VAELoss(nn.Module):
+    # matches the impelentation in model_eq.py
     def __init__(self):
         super(VAELoss, self).__init__()
         self.bce_loss = nn.BCELoss()
@@ -86,6 +89,7 @@ class VAELoss(nn.Module):
         """gives the batch normalized Variational Error."""
 
         batch_size = x.size()[0]
+        # TODO: recon_x = ApplyMasks(recon_x,x)
         BCE = self.bce_loss(recon_x, x)
 
         # see Appendix B from VAE paper:
@@ -97,6 +101,17 @@ class VAELoss(nn.Module):
 
         return (BCE + KLD) / batch_size
 
+#function ApplyMasks(x_true, x_pred):
+#     def conditional(x_true, x_pred):
+#         most_likely = K.argmax(x_true)
+#         most_likely = tf.reshape(most_likely, [-1])  # flatten most_likely
+#         ix2 = tf.expand_dims(tf.gather(ind_of_ind_K, most_likely), 1)  # index ind_of_ind with res
+#         ix2 = tf.cast(ix2, tf.int32)  # cast indices as ints
+#         M2 = tf.gather_nd(masks_K, ix2)  # get slices of masks_K with indices
+#         M3 = tf.reshape(M2, [-1, MAX_LEN, DIM])  # reshape them
+#         P2 = tf.mul(K.exp(x_pred), M3)  # apply them to the exp-predictions
+#         P2 = tf.div(P2, K.sum(P2, axis=-1, keepdims=True))  # normalize predictions
+#         return P2
 
 class GrammarVariationalAutoEncoder(nn.Module):
     def __init__(self):
