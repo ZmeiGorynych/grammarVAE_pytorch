@@ -5,7 +5,7 @@ import torch.optim as optim
 from torch.autograd import Variable
 from torch.optim import lr_scheduler
 
-from models.grammar_vae_model import GrammarVariationalAutoEncoder, VAELoss
+from models.model_grammar_pytorch import GrammarVariationalAutoEncoder, VAELoss
 from visdom_helper.visdom_helper import Dashboard
 from basic_pytorch.fit import fit
 

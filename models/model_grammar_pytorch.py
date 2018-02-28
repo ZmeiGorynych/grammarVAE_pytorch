@@ -36,7 +36,16 @@ class Decoder(nn.Module):
         out_3, hidden_3 = self.gru_3(out_2, hidden_3)
         out = self.fc_out(out_3.contiguous().view(-1, self.hidden_n)).view(_batch_size, self.max_seq_length,
                                                                            self.output_feature_size)
-        return F.relu(F.sigmoid(out)), hidden_1, hidden_2, hidden_3
+        # WTF RELU(sigmoid)?
+        #return F.relu(F.sigmoid(out)), hidden_1, hidden_2, hidden_3
+        return F.softmax(out,2), hidden_1, hidden_2, hidden_3
+
+    def decode(self, z):
+        # TODO: should actually be handling single vectors, not batches, dependent on dim?
+        batch_size = z.size()[0]
+        h1, h2, h3 = self.decoder.init_hidden(batch_size)
+        output, h1, h2, h3 = self.decoder(z, h1, h2, h3)
+        return output.data.numpy()
 
     def init_hidden(self, batch_size):
         # NOTE: assume only 1 layer no bi-direction
@@ -72,8 +81,11 @@ class Encoder(nn.Module):
         h = self.fc_0(x_)
         return self.fc_mu(h), self.fc_var(h)
 
+    def encode(self,x):
+        mu_, var_ = self.forward(x)
+        return mu_.data.numpy(), var_.data.numpy()
 
-from visdom_helper.visdom_helper import Dashboard
+#from visdom_helper.visdom_helper import Dashboard
 
 
 class VAELoss(nn.Module):
@@ -82,7 +94,7 @@ class VAELoss(nn.Module):
         super(VAELoss, self).__init__()
         self.bce_loss = nn.BCELoss()
         self.bce_loss.size_average = False
-        self.dashboard = Dashboard('Variational-Autoencoder-experiment')
+        #self.dashboard = Dashboard('Variational-Autoencoder-experiment')
 
     # question: how is the loss function using the mu and variance?
     def forward(self, x, mu, log_var, recon_x):

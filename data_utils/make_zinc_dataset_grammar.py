@@ -1,25 +1,22 @@
 from __future__ import print_function
 import nltk
 #import pdb
-import zinc_grammar
+from models import grammar_zinc, zinc_tokenizer
 import numpy as np
 import h5py
-import zinc_tokenizer
-
-
 
 MAX_LEN=277
-NCHARS = len(zinc_grammar.GCFG.productions())
+NCHARS = len(grammar_zinc.GCFG.productions())
 
 def to_one_hot(smiles):
     """ Encode a list of smiles strings to one-hot vectors """
     assert type(smiles) == list
     prod_map = {}
-    for ix, prod in enumerate(zinc_grammar.GCFG.productions()):
+    for ix, prod in enumerate(grammar_zinc.GCFG.productions()):
         prod_map[prod] = ix
-    tokenize = zinc_tokenizer.get_zinc_tokenizer(zinc_grammar.GCFG)
+    tokenize = zinc_tokenizer.get_zinc_tokenizer(grammar_zinc.GCFG)
     tokens = map(tokenize, smiles)
-    parser = nltk.ChartParser(zinc_grammar.GCFG)
+    parser = nltk.ChartParser(grammar_zinc.GCFG)
     parse_trees = [next(parser.parse(t)) for t in tokens]
     productions_seq = [tree.productions() for tree in parse_trees]
     indices = [np.array([prod_map[prod] for prod in entry], dtype=int) for entry in productions_seq]

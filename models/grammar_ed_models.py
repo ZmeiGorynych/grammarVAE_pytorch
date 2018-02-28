@@ -1,18 +1,25 @@
+import re
 import nltk
 import numpy as np
 
+import models
+import models.model_grammar_pytorch as models_torch
+from models.zinc_tokenizer import get_zinc_tokenizer
+
 class GrammarModel(object):
-    def __init__(self, weights_file,
-                        latent_rep_size=56,
+    def __init__(self,
+                 weights_file,
+                 latent_rep_size=None,
+                 max_len = None,
                  grammar = None,
                  model=None,
                  tokenizer = None):
         """ Load the (trained) zinc encoder/decoder, grammar model. """
         self._grammar = grammar
-        self._model = model
+        #self._model = model
         self._tokenize = tokenizer
+        self.MAX_LEN = max_len
 
-        self.MAX_LEN = self._model.MAX_LEN
         self._productions = self._grammar.GCFG.productions()
         self._prod_map = {}
         for ix, prod in enumerate(self._productions):
@@ -22,7 +29,8 @@ class GrammarModel(object):
         self._lhs_map = {}
         for ix, lhs in enumerate(self._grammar.lhs_list):
             self._lhs_map[lhs] = ix
-        self.vae = self._model.MoleculeVAE()
+        #self.vae = self._model.MoleculeVAE()
+        self.vae = model #self._model.MoleculeVAE()
         self.vae.load(self._productions,
                       weights_file,
                       max_length=self.MAX_LEN,
@@ -84,6 +92,49 @@ class GrammarModel(object):
                      for t in range(X_hat.shape[1])]
                     for index in range(X_hat.shape[0])]
         return [prods_to_eq(prods) for prods in prod_seq]
+
+
+def eq_tokenizer(s):
+    funcs = ['sin', 'exp']
+    for fn in funcs: s = s.replace(fn+'(', fn+' ')
+    s = re.sub(r'([^a-z ])', r' \1 ', s)
+    for fn in funcs: s = s.replace(fn, fn+'(')
+    return s.split()
+
+
+class EquationGrammarModel(GrammarModel):
+    def __init__(self, weights_file,
+                 latent_rep_size=56,
+                 max_len=15,
+                 grammar=models.grammar_eq,
+                 model=models_torch.GrammarVariationalAutoEncoder,#models.model_eq.MoleculeVAE(),
+                 tokenizer=eq_tokenizer):
+        """ Load the (trained) zinc encoder/decoder, grammar model. """
+        super().__init__(weights_file,
+                         latent_rep_size=latent_rep_size,
+                         max_len=max_len,
+                         grammar=grammar,
+                         model=model,
+                         tokenizer=tokenizer)
+
+
+zinc_tokenizer = get_zinc_tokenizer(models.grammar_zinc.GCFG)
+
+
+class ZincGrammarModel(GrammarModel):
+    def __init__(self,
+                 weights_file,
+                 latent_rep_size=56,
+                 max_len=277,
+                 grammar=models.grammar_zinc,
+                 model=models_torch.GrammarVariationalAutoEncoder,#models.model_zinc.MoleculeVAE(),
+                 tokenizer=zinc_tokenizer):
+        super().__init__(weights_file,
+                         latent_rep_size=latent_rep_size,
+                         max_len=max_len,
+                         grammar=grammar,
+                         model=model,
+                         tokenizer=tokenizer)
 
 
 def pop_or_nothing(S):
