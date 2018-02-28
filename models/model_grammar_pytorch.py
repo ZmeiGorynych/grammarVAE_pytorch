@@ -2,7 +2,7 @@ import torch
 from torch.autograd import Variable
 import torch.nn as nn
 import torch.nn.functional as F
-
+from gpu_utils import FloatTensor, to_gpu
 
 class Decoder(nn.Module):
     # implementation matches model_eq.py _buildDecoder, at least in intent
@@ -90,10 +90,14 @@ class Encoder(nn.Module):
 
 class VAELoss(nn.Module):
     # matches the impelentation in model_eq.py
-    def __init__(self):
+    def __init__(self, masks = None):
+        '''
+        :param masks: array of allowed transition rules from a given symbol
+        '''
         super(VAELoss, self).__init__()
         self.bce_loss = nn.BCELoss()
         self.bce_loss.size_average = False
+        self.masks = masks
         #self.dashboard = Dashboard('Variational-Autoencoder-experiment')
 
     # question: how is the loss function using the mu and variance?
@@ -101,7 +105,9 @@ class VAELoss(nn.Module):
         """gives the batch normalized Variational Error."""
 
         batch_size = x.size()[0]
-        # TODO: recon_x = ApplyMasks(recon_x,x)
+        if self.masks is not None:
+            recon_x = apply_masks(x, recon_x, self.masks)
+
         BCE = self.bce_loss(recon_x, x)
 
         # see Appendix B from VAE paper:
@@ -113,17 +119,30 @@ class VAELoss(nn.Module):
 
         return (BCE + KLD) / batch_size
 
-#function ApplyMasks(x_true, x_pred):
-#     def conditional(x_true, x_pred):
-#         most_likely = K.argmax(x_true)
-#         most_likely = tf.reshape(most_likely, [-1])  # flatten most_likely
-#         ix2 = tf.expand_dims(tf.gather(ind_of_ind_K, most_likely), 1)  # index ind_of_ind with res
-#         ix2 = tf.cast(ix2, tf.int32)  # cast indices as ints
-#         M2 = tf.gather_nd(masks_K, ix2)  # get slices of masks_K with indices
-#         M3 = tf.reshape(M2, [-1, MAX_LEN, DIM])  # reshape them
-#         P2 = tf.mul(K.exp(x_pred), M3)  # apply them to the exp-predictions
-#         P2 = tf.div(P2, K.sum(P2, axis=-1, keepdims=True))  # normalize predictions
-#         return P2
+def apply_masks(x_true, x_pred, masks):
+    '''
+    Apply grammar transition rules to a softmax matrix
+    :param x_true: Variable of actual transitions, one-hot encoded, batch x sequence x element
+    :param x_pred: Variable of probabilities, past softmax, same shape as x_true
+    :return: x_pred zeroed out and rescaled
+    '''
+
+    x_size = x_true.size()
+    mask = to_gpu(torch.ones(*x_size))
+    for i in range(0,x_size[0]):
+        for j in range(1, x_size[1]):
+            # argmax
+            best_prev_ind = torch.max(x_true.data[i,j-1,:],0)[1][0]
+            if best_prev_ind < masks.size()[0]: # if previous rule is nonterminal
+                mask[i,j,:] = masks[best_prev_ind]
+
+    # nuke the transitions prohibited if we follow x_true
+    x_resc = x_pred * Variable(mask)
+    # and rescale the softmax to sum=1 again
+    scaler = torch.sum(x_resc, dim=2, keepdim=True)
+    scaler2 = torch.cat([scaler]*x_size[2], dim=2)
+    out = x_resc /scaler2
+    return out
 
 class GrammarVariationalAutoEncoder(nn.Module):
     def __init__(self):
@@ -134,14 +153,21 @@ class GrammarVariationalAutoEncoder(nn.Module):
     def forward(self, x):
         batch_size = x.size()[0]
         mu, log_var = self.encoder(x)
-        z = self.reparameterize(mu, log_var)
+        z = self.sample(mu, log_var)
         h1, h2, h3 = self.decoder.init_hidden(batch_size)
         output, h1, h2, h3 = self.decoder(z, h1, h2, h3)
         return output, mu, log_var
 
-    def reparameterize(self, mu, log_var):
+    def sample(self, mu, log_var):
         """you generate a random distribution w.r.t. the mu and log_var from the embedding space."""
         vector_size = log_var.size()
         eps = Variable(torch.FloatTensor(vector_size).normal_())
         std = log_var.mul(0.5).exp_()
         return eps.mul(std).add_(mu)
+
+    def load(self,
+             productions = None,
+             weights_file = None,
+             max_length=None,
+             latent_rep_size=None):
+        raise NotImplementedError()

@@ -12,7 +12,7 @@ class GrammarModel(object):
                  latent_rep_size=None,
                  max_len = None,
                  grammar = None,
-                 model=None,
+                 model=models_torch.GrammarVariationalAutoEncoder,
                  tokenizer = None):
         """ Load the (trained) zinc encoder/decoder, grammar model. """
         self._grammar = grammar
@@ -29,8 +29,7 @@ class GrammarModel(object):
         self._lhs_map = {}
         for ix, lhs in enumerate(self._grammar.lhs_list):
             self._lhs_map[lhs] = ix
-        #self.vae = self._model.MoleculeVAE()
-        self.vae = model #self._model.MoleculeVAE()
+        self.vae = model() #self._model.MoleculeVAE()
         self.vae.load(self._productions,
                       weights_file,
                       max_length=self.MAX_LEN,
@@ -50,7 +49,7 @@ class GrammarModel(object):
             one_hot[i][np.arange(num_productions),indices[i]] = 1.
             one_hot[i][np.arange(num_productions, self.MAX_LEN),-1] = 1.
         self.one_hot = one_hot
-        z_mean, z_var = self.vae.encoderMV.predict(one_hot)
+        z_mean, z_var = self.vae.encoder.encode(one_hot)
         return z_mean
 
     def _sample_using_masks(self, unmasked):
@@ -85,7 +84,7 @@ class GrammarModel(object):
         """ Sample from the grammar decoder """
         # TODO: WHY ndim = 2?
         assert z.ndim == 2
-        unmasked = self.vae.decoder.predict(z)
+        unmasked = self.vae.decoder.decode(z)
         X_hat = self._sample_using_masks(unmasked)
         # Convert from one-hot to sequence of production rules
         prod_seq = [[self._productions[X_hat[index,t].argmax()]

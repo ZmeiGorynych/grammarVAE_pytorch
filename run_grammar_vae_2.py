@@ -6,9 +6,7 @@ from torch.autograd import Variable
 from torch.optim import lr_scheduler
 
 from models.model_grammar_pytorch import GrammarVariationalAutoEncoder, VAELoss
-from visdom_helper.visdom_helper import Dashboard
 from basic_pytorch.fit import fit
-
 
 EPOCHS = 20
 BATCH_SIZE = 200
@@ -24,16 +22,22 @@ def kfold_loader(k, s, e=None):
 model = GrammarVariationalAutoEncoder()
 optimizer = optim.Adam(model.parameters(), lr=2e-3)
 
-def duplicate_gen(loader):
-    '''
-    Returns two copies of the data from each batch, one to use as inputs, the other as targets
-    :param gen:
-    :return:
-    '''
-    iter = loader.__iter__()
-    while True:
-        x = Variable(next(iter))
-        yield (x,x)
+class DuplicateIter:
+    def __init__(self, iterable):
+        self.iterable = iterable
+
+    def __iter__(self):
+        def gen():
+            '''
+            Returns two copies of the data from each batch, one to use as inputs, the other as targets
+            :param gen:
+            :return:
+            '''
+            iter = self.iterable.__iter__()
+            while True:
+                x = Variable(next(iter))
+                yield (x,x)
+        return gen()
 
 train_loader = torch.utils.data.DataLoader(kfold_loader(10, 1),
                                           batch_size=BATCH_SIZE,
@@ -42,15 +46,16 @@ valid_loader = torch.utils.data.DataLoader(kfold_loader(10, 0, 1),
                                   batch_size=BATCH_SIZE,
                                   shuffle=False)
 
-train_gen = lambda: duplicate_gen(train_loader)
-valid_gen = lambda: duplicate_gen(valid_loader)
+train_gen = DuplicateIter(train_loader)
+valid_gen = DuplicateIter(valid_loader)
 
 scheduler = lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.5)
 
+#loss_obj = VAELoss(masks=FloatTensor(grammar.masks))
+loss_obj = VAELoss()
 def loss_fn(model_out, data):
     output, mu, log_var = model_out
-    loss = VAELoss()
-    return loss(data, mu, log_var, output)
+    return loss_obj(data, mu, log_var, output)
 
 fit(train_gen=train_gen,
     valid_gen=valid_gen,
@@ -62,9 +67,7 @@ fit(train_gen=train_gen,
     save_path='test.mdl')
 
 # TODO: use
- # built-in method for the nn.module, sets a training flag.
-        #self.model.train()
-        # self.model.eval()
+
 
 # if batch_idx == 0:
 #     print('batch size', batch_size)
