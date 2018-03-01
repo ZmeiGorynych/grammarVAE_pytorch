@@ -5,7 +5,7 @@ import torch.optim as optim
 from torch.autograd import Variable
 from torch.optim import lr_scheduler
 
-from grammar_variational_autoencoder.models import grammar_eq
+from grammar_variational_autoencoder.models.grammar_helper import grammar_eq
 from models.model_grammar_pytorch import GrammarVariationalAutoEncoder, VAELoss
 from basic_pytorch.fit import fit
 
