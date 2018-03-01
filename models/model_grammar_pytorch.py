@@ -2,7 +2,7 @@ import torch
 from torch.autograd import Variable
 import torch.nn as nn
 import torch.nn.functional as F
-from gpu_utils import FloatTensor, to_gpu
+from gpu_utils import FloatTensor, IntTensor, to_gpu
 
 class Decoder(nn.Module):
     # implementation matches model_eq.py _buildDecoder, at least in intent
@@ -90,14 +90,15 @@ class Encoder(nn.Module):
 
 class VAELoss(nn.Module):
     # matches the impelentation in model_eq.py
-    def __init__(self, masks = None):
+    def __init__(self, grammar  = None):
         '''
         :param masks: array of allowed transition rules from a given symbol
         '''
         super(VAELoss, self).__init__()
         self.bce_loss = nn.BCELoss()
         self.bce_loss.size_average = False
-        self.masks = masks
+        self.masks = FloatTensor(grammar.masks)
+        self.ind_to_lhs_ind = IntTensor(grammar.ind_to_lhs_ind)
         #self.dashboard = Dashboard('Variational-Autoencoder-experiment')
 
     # question: how is the loss function using the mu and variance?
@@ -106,7 +107,11 @@ class VAELoss(nn.Module):
 
         batch_size = x.size()[0]
         if self.masks is not None:
-            recon_x = apply_masks(x, recon_x, self.masks)
+            recon_x = apply_masks(x,
+                                  recon_x,
+                                  self.masks,
+                                  self.ind_to_lhs_ind
+                                  )
 
         BCE = self.bce_loss(recon_x, x)
 
@@ -119,7 +124,7 @@ class VAELoss(nn.Module):
 
         return (BCE + KLD) / batch_size
 
-def apply_masks(x_true, x_pred, masks):
+def apply_masks(x_true, x_pred, masks, ind_to_lhs_ind):
     '''
     Apply grammar transition rules to a softmax matrix
     :param x_true: Variable of actual transitions, one-hot encoded, batch x sequence x element
@@ -130,11 +135,11 @@ def apply_masks(x_true, x_pred, masks):
     x_size = x_true.size()
     mask = to_gpu(torch.ones(*x_size))
     for i in range(0,x_size[0]):
-        for j in range(1, x_size[1]):
+        for j in range(0, x_size[1]):
             # argmax
-            best_prev_ind = torch.max(x_true.data[i,j-1,:],0)[1][0]
-            if best_prev_ind < masks.size()[0]: # if previous rule is nonterminal
-                mask[i,j,:] = masks[best_prev_ind]
+            true_rule_ind = torch.max(x_true.data[i,j,:],0)[1][0]
+            # look up lhs from true one-hot, mask must be for that lhs
+            mask[i,j,:] = masks[ind_to_lhs_ind[true_rule_ind]]
 
     # nuke the transitions prohibited if we follow x_true
     x_resc = x_pred * Variable(mask)

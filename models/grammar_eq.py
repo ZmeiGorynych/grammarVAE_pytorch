@@ -16,9 +16,11 @@ T -> '2'
 T -> '3'
 Nothing -> None"""
 
+# form the CFG and get the start symbol
 GCFG = nltk.CFG.fromstring(gram)
 start_index = GCFG.productions()[0].lhs()
 
+# collect all lhs symbols, and the unique set of them
 all_lhs = [a.lhs().symbol() for a in GCFG.productions()]
 lhs_list = []
 for a in all_lhs:
@@ -50,3 +52,15 @@ index_array = []
 for i in range(masks.shape[1]):
     index_array.append(np.where(masks[:, i] == 1)[0][0])
 ind_of_ind = np.array(index_array)
+
+ind_to_lhs_ind = -np.ones(len(all_lhs), dtype=int)
+for i,a in enumerate(all_lhs):
+    for ind,un_a in enumerate(lhs_list):
+        if a==un_a:
+            ind_to_lhs_ind[i] = ind
+
+ind_to_lhs_ind = -np.ones(len(all_lhs), dtype=int)
+for i, a in enumerate(all_lhs):
+    for ind, un_a in enumerate(lhs_list):
+        if a == un_a:
+            ind_to_lhs_ind[i] = ind

@@ -5,6 +5,7 @@ import torch.optim as optim
 from torch.autograd import Variable
 from torch.optim import lr_scheduler
 
+from grammar_variational_autoencoder.models import grammar_eq
 from models.model_grammar_pytorch import GrammarVariationalAutoEncoder, VAELoss
 from basic_pytorch.fit import fit
 
@@ -51,8 +52,8 @@ valid_gen = DuplicateIter(valid_loader)
 
 scheduler = lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.5)
 
-#loss_obj = VAELoss(masks=FloatTensor(grammar.masks))
-loss_obj = VAELoss()
+loss_obj = VAELoss(grammar_eq)
+#loss_obj = VAELoss()
 def loss_fn(model_out, data):
     output, mu, log_var = model_out
     return loss_obj(data, mu, log_var, output)
@@ -64,7 +65,8 @@ fit(train_gen=train_gen,
     scheduler=scheduler,
     epochs=EPOCHS,
     loss_fn=loss_fn,
-    save_path='test.mdl')
+    save_path='test.mdl',
+    ignore_initial=-1)
 
 # TODO: use
 
