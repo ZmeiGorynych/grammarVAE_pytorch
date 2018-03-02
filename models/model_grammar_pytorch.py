@@ -73,7 +73,7 @@ class Encoder(nn.Module):
         self.conv_3 = nn.Conv1d(kernel_size=self.k[2],**conv_args)
         self.bn_3 = nn.BatchNorm1d(feature_len)
 
-        self.fc_0 = nn.Linear(feature_len * (max_seq_length + 3 - sum(self.k)), z_size)
+        self.fc_0 = nn.Linear(feature_len * (max_seq_length + len(self.k) - sum(self.k)), z_size)
         self.fc_mu = nn.Linear(z_size, z_size)
         self.fc_var = nn.Linear(z_size, z_size)
 

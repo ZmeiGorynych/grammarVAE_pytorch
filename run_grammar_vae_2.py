@@ -9,6 +9,8 @@ from torch.optim import lr_scheduler
 from grammar_variational_autoencoder.models.grammar_helper import grammar_eq, grammar_zinc
 from models.model_grammar_pytorch import GrammarVariationalAutoEncoder, VAELoss
 from basic_pytorch.fit import fit
+from basic_pytorch.data_utils.data_sources import DatasetFromHDF5, train_valid_loaders
+from basic_pytorch.gpu_utils import FloatTensor
 
 EPOCHS = 1
 BATCH_SIZE = 200
@@ -30,17 +32,19 @@ model_args = {'z_size': 56,
               'max_seq_length': max_seq_length,
               'encoder_kernel_sizes': (2, 3, 4)}
 
-def kfold_loader(k, s, e=None):
-    if not e:
-        e = k
-    with h5py.File(data_path, 'r') as h5f:
-        result = np.concatenate([h5f['data'][i::k] for i in range(s, e)])
-        return torch.FloatTensor(result)
+print('loading data...')
+
+# def kfold_loader(k, s, e=None):
+#     if not e:
+#         e = k
+#     with h5py.File(data_path, 'r') as h5f:
+#         result = np.concatenate([h5f['data'][i::k] for i in range(s, e)])
+#         return torch.FloatTensor(result)
+# print('done!')
 
 
 model = GrammarVariationalAutoEncoder(**model_args)
 optimizer = optim.Adam(model.parameters(), lr=2e-3)
-
 
 class DuplicateIter:
     def __init__(self, iterable):
@@ -48,23 +52,23 @@ class DuplicateIter:
 
     def __iter__(self):
         def gen():
-            '''
-            Returns two copies of the data from each batch, one to use as inputs, the other as targets
-            :param gen:
-            :return:
-            '''
             iter = self.iterable.__iter__()
             while True:
-                x = Variable(next(iter))
+                # TODO: cast to float earlier?
+                x = Variable(next(iter).float())
                 yield (x,x)
         return gen()
 
-train_loader = torch.utils.data.DataLoader(kfold_loader(10, 1),
-                                          batch_size=BATCH_SIZE,
-                                          shuffle=False)
-valid_loader = torch.utils.data.DataLoader(kfold_loader(10, 0, 1),
-                                  batch_size=BATCH_SIZE,
-                                  shuffle=False)
+
+train_loader, valid_loader = train_valid_loaders(DatasetFromHDF5(data_path,'data'),
+                                                 valid_fraction=0.1,
+                                                 batch_size=BATCH_SIZE)
+# train_loader = torch.utils.data.DataLoader(kfold_loader(10, 1),
+#                                           batch_size=BATCH_SIZE,
+#                                           shuffle=False)
+# valid_loader = torch.utils.data.DataLoader(kfold_loader(10, 0, 1),
+#                                   batch_size=BATCH_SIZE,
+#                                   shuffle=False)
 
 train_gen = DuplicateIter(train_loader)
 valid_gen = DuplicateIter(valid_loader)
@@ -72,7 +76,6 @@ valid_gen = DuplicateIter(valid_loader)
 scheduler = lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.5)
 
 loss_obj = VAELoss(grammar)
-#loss_obj = VAELoss()
 def loss_fn(model_out, data):
     output, mu, log_var = model_out
     return loss_obj(data, mu, log_var, output)
@@ -90,6 +93,7 @@ fit(train_gen=train_gen,
     save_path=save_path,
     ignore_initial=-1)
 
+# test the Load method
 model2 = GrammarVariationalAutoEncoder(**model_args)
 model2.load(save_path)
 # TODO: use
