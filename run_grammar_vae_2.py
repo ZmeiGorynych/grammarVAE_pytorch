@@ -6,22 +6,41 @@ import torch.optim as optim
 from torch.autograd import Variable
 from torch.optim import lr_scheduler
 
-from grammar_variational_autoencoder.models.grammar_helper import grammar_eq
+from grammar_variational_autoencoder.models.grammar_helper import grammar_eq, grammar_zinc
 from models.model_grammar_pytorch import GrammarVariationalAutoEncoder, VAELoss
 from basic_pytorch.fit import fit
 
 EPOCHS = 1
-BATCH_SIZE = 500
+BATCH_SIZE = 200
+
+# TODO: get those from the correct GrammarModel instance?
+molecules = True
+if molecules:
+    grammar = grammar_zinc
+    data_path = 'data/zinc_grammar_dataset.h5'
+    max_seq_length = 277
+else:
+    grammar = grammar_eq
+    data_path = 'data/eq2_grammar_dataset.h5'
+    max_seq_length = 15
+
+model_args = {'z_size': 56,
+              'hidden_n': 200,
+              'feature_len': len(grammar.GCFG.productions()),
+              'max_seq_length': max_seq_length,
+              'encoder_kernel_sizes': (2, 3, 4)}
 
 def kfold_loader(k, s, e=None):
     if not e:
         e = k
-    with h5py.File('data/eq2_grammar_dataset.h5', 'r') as h5f:
+    with h5py.File(data_path, 'r') as h5f:
         result = np.concatenate([h5f['data'][i::k] for i in range(s, e)])
         return torch.FloatTensor(result)
 
-model = GrammarVariationalAutoEncoder()
+
+model = GrammarVariationalAutoEncoder(**model_args)
 optimizer = optim.Adam(model.parameters(), lr=2e-3)
+
 
 class DuplicateIter:
     def __init__(self, iterable):
@@ -52,7 +71,7 @@ valid_gen = DuplicateIter(valid_loader)
 
 scheduler = lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.5)
 
-loss_obj = VAELoss(grammar_eq)
+loss_obj = VAELoss(grammar)
 #loss_obj = VAELoss()
 def loss_fn(model_out, data):
     output, mu, log_var = model_out
@@ -71,7 +90,7 @@ fit(train_gen=train_gen,
     save_path=save_path,
     ignore_initial=-1)
 
-model2 = GrammarVariationalAutoEncoder()
+model2 = GrammarVariationalAutoEncoder(**model_args)
 model2.load(save_path)
 # TODO: use
 

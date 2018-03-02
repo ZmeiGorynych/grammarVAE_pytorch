@@ -11,13 +11,14 @@ class Decoder(nn.Module):
         self.max_seq_length = max_seq_length
         self.hidden_n = hidden_n
         self.output_feature_size = feature_len
+        # TODO: is the batchNorm applied on the correct dimension?
         self.batch_norm = nn.BatchNorm1d(z_size)
         self.fc_input = nn.Linear(z_size, hidden_n)
         # we specify each layer manually, so that we can do teacher forcing on the last layer.
         # we also use no drop-out in this version.
-        self.gru_1 = nn.GRU(input_size=z_size, hidden_size=hidden_n, batch_first=True)
-        self.gru_2 = nn.GRU(input_size=z_size, hidden_size=hidden_n, batch_first=True)
-        self.gru_3 = nn.GRU(input_size=z_size, hidden_size=hidden_n, batch_first=True)
+        self.gru_1 = nn.GRU(input_size=hidden_n, hidden_size=hidden_n, batch_first=True)
+        self.gru_2 = nn.GRU(input_size=hidden_n, hidden_size=hidden_n, batch_first=True)
+        self.gru_3 = nn.GRU(input_size=hidden_n, hidden_size=hidden_n, batch_first=True)
         self.fc_out = nn.Linear(hidden_n, feature_len)
 
     def forward(self, encoded, hidden_1, hidden_2, hidden_3, beta=0.3, target_seq=None):
