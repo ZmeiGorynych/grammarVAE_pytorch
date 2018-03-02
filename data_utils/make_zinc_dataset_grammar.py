@@ -1,7 +1,8 @@
 from __future__ import print_function
 import nltk
 #import pdb
-from models import grammar_zinc, zinc_tokenizer
+from models.grammar_helper import grammar_zinc
+from grammar_variational_autoencoder.models.grammar_ed_models import get_zinc_tokenizer
 import numpy as np
 import h5py
 
@@ -14,7 +15,7 @@ def to_one_hot(smiles):
     prod_map = {}
     for ix, prod in enumerate(grammar_zinc.GCFG.productions()):
         prod_map[prod] = ix
-    tokenize = zinc_tokenizer.get_zinc_tokenizer(grammar_zinc.GCFG)
+    tokenize = get_zinc_tokenizer(grammar_zinc.GCFG)
     tokens = map(tokenize, smiles)
     parser = nltk.ChartParser(grammar_zinc.GCFG)
     parse_trees = [next(parser.parse(t)) for t in tokens]

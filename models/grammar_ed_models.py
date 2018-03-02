@@ -4,7 +4,6 @@ import numpy as np
 
 import models
 import models.model_grammar_pytorch as models_torch
-from models.zinc_tokenizer import get_zinc_tokenizer
 
 class GrammarModel(object):
     def __init__(self,
@@ -29,11 +28,12 @@ class GrammarModel(object):
         self._lhs_map = {}
         for ix, lhs in enumerate(self._grammar.lhs_list):
             self._lhs_map[lhs] = ix
-        self.vae = model() #self._model.MoleculeVAE()
-        self.vae.load(self._productions,
-                      weights_file,
-                      max_length=self.MAX_LEN,
-                      latent_rep_size=latent_rep_size)
+        # assume model hidden_n and encoder_kernel_size are always the same
+        self.vae = model(z_size=latent_rep_size,
+                         feature_len=len(self._productions),
+                         max_seq_length=self.MAX_LEN)
+        self.vae.load(weights_file)
+
 
 
     def encode(self, smiles):
@@ -116,6 +116,27 @@ class EquationGrammarModel(GrammarModel):
                          model=model,
                          tokenizer=tokenizer)
 
+def get_zinc_tokenizer(cfg):
+    long_tokens = [a for a in cfg._lexical_index.keys() if  len(a) > 1 ] #filter(lambda a: len(a) > 1, cfg._lexical_index.keys())
+    replacements = ['$','%','^'] # ,'&']
+    assert len(long_tokens) == len(replacements)
+    for token in replacements:
+        #assert not cfg._lexical_index.has_key(token)
+        assert not token in cfg._lexical_index
+
+    def tokenize(smiles):
+        for i, token in enumerate(long_tokens):
+            smiles = smiles.replace(token, replacements[i])
+        tokens = []
+        for token in smiles:
+            try:
+                ix = replacements.index(token)
+                tokens.append(long_tokens[ix])
+            except:
+                tokens.append(token)
+        return tokens
+
+    return tokenize
 
 zinc_tokenizer = get_zinc_tokenizer(models.grammar_zinc.GCFG)
 

@@ -19,8 +19,8 @@ class CharacterModel(object):
             self._char_index[char] = ix
         self.vae.load(self.charlist,
                       weights_file,
-                      max_length=self.MAX_LEN,
-                      latent_rep_size=latent_rep_size)
+                      max_seq_length=self.MAX_LEN,
+                      z_size=latent_rep_size)
 
     def encode(self, smiles):
         """ Encode a list of smiles strings into the latent space """

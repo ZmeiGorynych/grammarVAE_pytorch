@@ -1,5 +1,6 @@
 import h5py
 import numpy as np
+import os, inspect
 import torch.utils.data
 import torch.optim as optim
 from torch.autograd import Variable
@@ -9,9 +10,8 @@ from grammar_variational_autoencoder.models.grammar_helper import grammar_eq
 from models.model_grammar_pytorch import GrammarVariationalAutoEncoder, VAELoss
 from basic_pytorch.fit import fit
 
-EPOCHS = 20
-BATCH_SIZE = 200
-
+EPOCHS = 1
+BATCH_SIZE = 500
 
 def kfold_loader(k, s, e=None):
     if not e:
@@ -58,6 +58,9 @@ def loss_fn(model_out, data):
     output, mu, log_var = model_out
     return loss_obj(data, mu, log_var, output)
 
+my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+save_path=my_location + '/pretrained/test.mdl'
+
 fit(train_gen=train_gen,
     valid_gen=valid_gen,
     model=model,
@@ -65,9 +68,11 @@ fit(train_gen=train_gen,
     scheduler=scheduler,
     epochs=EPOCHS,
     loss_fn=loss_fn,
-    save_path='test.mdl',
+    save_path=save_path,
     ignore_initial=-1)
 
+model2 = GrammarVariationalAutoEncoder()
+model2.load(save_path)
 # TODO: use
 
 

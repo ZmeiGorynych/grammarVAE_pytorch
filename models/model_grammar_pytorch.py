@@ -189,9 +189,7 @@ class GrammarVariationalAutoEncoder(nn.Module):
         std = log_var.mul(0.5).exp_()
         return eps.mul(std).add_(mu)
 
-    def load(self,
-             productions = None,
-             weights_file = None,
-             max_length=None,
-             latent_rep_size=None):
-        raise NotImplementedError()
+    def load(self, weights_file):
+        print('Trying to load model parameters from ', weights_file)
+        self.load_state_dict(torch.load(weights_file))
+        print('Success!')
