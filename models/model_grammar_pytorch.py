@@ -50,9 +50,9 @@ class Decoder(nn.Module):
 
     def init_hidden(self, batch_size):
         # NOTE: assume only 1 layer no bi-direction
-        h1 = Variable(torch.zeros(1, batch_size, self.hidden_n), requires_grad=False)
-        h2 = Variable(torch.zeros(1, batch_size, self.hidden_n), requires_grad=False)
-        h3 = Variable(torch.zeros(1, batch_size, self.hidden_n), requires_grad=False)
+        h1 = Variable(to_gpu(torch.zeros(1, batch_size, self.hidden_n)), requires_grad=False)
+        h2 = Variable(to_gpu(torch.zeros(1, batch_size, self.hidden_n)), requires_grad=False)
+        h3 = Variable(to_gpu(torch.zeros(1, batch_size, self.hidden_n)), requires_grad=False)
         return h1, h2, h3
 
 
@@ -99,7 +99,7 @@ class Encoder(nn.Module):
 
 class VAELoss(nn.Module):
     # matches the impelentation in model_eq.py
-    def __init__(self, grammar  = None):
+    def __init__(self, grammar=None):
         '''
         :param masks: array of allowed transition rules from a given symbol
         '''
@@ -166,14 +166,14 @@ class GrammarVariationalAutoEncoder(nn.Module):
                  max_seq_length=15,
                  encoder_kernel_sizes=(2,3,4)):
         super(GrammarVariationalAutoEncoder, self).__init__()
-        self.encoder = Encoder(max_seq_length=max_seq_length,
+        self.encoder = to_gpu(Encoder(max_seq_length=max_seq_length,
                                encoder_kernel_sizes=encoder_kernel_sizes,
                                z_size=z_size,
-                               feature_len=feature_len)
-        self.decoder = Decoder(z_size=z_size,
+                               feature_len=feature_len))
+        self.decoder = to_gpu(Decoder(z_size=z_size,
                                hidden_n=hidden_n,
                                feature_len=feature_len,
-                               max_seq_length=max_seq_length)
+                               max_seq_length=max_seq_length))
 
     def forward(self, x):
         batch_size = x.size()[0]
@@ -186,7 +186,7 @@ class GrammarVariationalAutoEncoder(nn.Module):
     def sample(self, mu, log_var):
         """you generate a random distribution w.r.t. the mu and log_var from the embedding space."""
         vector_size = log_var.size()
-        eps = Variable(torch.FloatTensor(vector_size).normal_())
+        eps = Variable(FloatTensor(vector_size).normal_())
         std = log_var.mul(0.5).exp_()
         return eps.mul(std).add_(mu)
 

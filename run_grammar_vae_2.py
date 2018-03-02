@@ -10,7 +10,7 @@ from grammar_variational_autoencoder.models.grammar_helper import grammar_eq, gr
 from models.model_grammar_pytorch import GrammarVariationalAutoEncoder, VAELoss
 from basic_pytorch.fit import fit
 from basic_pytorch.data_utils.data_sources import DatasetFromHDF5, train_valid_loaders
-from basic_pytorch.gpu_utils import FloatTensor
+from basic_pytorch.gpu_utils import to_gpu, use_gpu
 
 EPOCHS = 1
 BATCH_SIZE = 200
@@ -55,14 +55,15 @@ class DuplicateIter:
             iter = self.iterable.__iter__()
             while True:
                 # TODO: cast to float earlier?
-                x = Variable(next(iter).float())
+                x = Variable(to_gpu(next(iter).float()))
                 yield (x,x)
         return gen()
 
 
 train_loader, valid_loader = train_valid_loaders(DatasetFromHDF5(data_path,'data'),
                                                  valid_fraction=0.1,
-                                                 batch_size=BATCH_SIZE)
+                                                 batch_size=BATCH_SIZE,
+                                                 pin_memory=use_gpu)
 # train_loader = torch.utils.data.DataLoader(kfold_loader(10, 1),
 #                                           batch_size=BATCH_SIZE,
 #                                           shuffle=False)
