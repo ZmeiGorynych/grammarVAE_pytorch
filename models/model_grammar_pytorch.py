@@ -6,19 +6,19 @@ from gpu_utils import FloatTensor, IntTensor, to_gpu
 
 class Decoder(nn.Module):
     # implementation matches model_eq.py _buildDecoder, at least in intent
-    def __init__(self, input_size=200, hidden_n=200, output_feature_size=12, max_seq_length=15):
+    def __init__(self, z_size=200, hidden_n=200, feature_len=12, max_seq_length=15):
         super(Decoder, self).__init__()
         self.max_seq_length = max_seq_length
         self.hidden_n = hidden_n
-        self.output_feature_size = output_feature_size
-        self.batch_norm = nn.BatchNorm1d(input_size)
-        self.fc_input = nn.Linear(input_size, hidden_n)
+        self.output_feature_size = feature_len
+        self.batch_norm = nn.BatchNorm1d(z_size)
+        self.fc_input = nn.Linear(z_size, hidden_n)
         # we specify each layer manually, so that we can do teacher forcing on the last layer.
         # we also use no drop-out in this version.
-        self.gru_1 = nn.GRU(input_size=input_size, hidden_size=hidden_n, batch_first=True)
-        self.gru_2 = nn.GRU(input_size=input_size, hidden_size=hidden_n, batch_first=True)
-        self.gru_3 = nn.GRU(input_size=input_size, hidden_size=hidden_n, batch_first=True)
-        self.fc_out = nn.Linear(hidden_n, output_feature_size)
+        self.gru_1 = nn.GRU(input_size=z_size, hidden_size=hidden_n, batch_first=True)
+        self.gru_2 = nn.GRU(input_size=z_size, hidden_size=hidden_n, batch_first=True)
+        self.gru_3 = nn.GRU(input_size=z_size, hidden_size=hidden_n, batch_first=True)
+        self.fc_out = nn.Linear(hidden_n, feature_len)
 
     def forward(self, encoded, hidden_1, hidden_2, hidden_3, beta=0.3, target_seq=None):
         _batch_size = encoded.size()[0]
@@ -56,24 +56,32 @@ class Decoder(nn.Module):
 
 
 class Encoder(nn.Module):
-    def __init__(self, L, k1=2, k2=3, k3=4, hidden_n=200):
+    def __init__(self,
+                 max_seq_length=None,
+                 encoder_kernel_sizes=(2,3,4),
+                 z_size=200,
+                 feature_len=None):
         super(Encoder, self).__init__()
+        self.k = encoder_kernel_sizes
         # NOTE: GVAE implementation does not use max-pooling. Original DCNN implementation uses max-k pooling.
-        self.conv_1 = nn.Conv1d(in_channels=12, out_channels=12, kernel_size=k1, groups=12)
-        self.bn_1 = nn.BatchNorm1d(12)
-        self.conv_2 = nn.Conv1d(in_channels=12, out_channels=12, kernel_size=k2, groups=12)
-        self.bn_2 = nn.BatchNorm1d(12)
-        self.conv_3 = nn.Conv1d(in_channels=12, out_channels=12, kernel_size=k3, groups=12)
-        self.bn_3 = nn.BatchNorm1d(12)
+        conv_args = {'in_channels':feature_len, 'out_channels':feature_len,  'groups':feature_len}
+        self.conv_1 = nn.Conv1d(kernel_size=self.k[0],**conv_args)
+        self.bn_1 = nn.BatchNorm1d(feature_len)
+        self.conv_2 = nn.Conv1d(kernel_size=self.k[1],**conv_args)
+        self.bn_2 = nn.BatchNorm1d(feature_len)
+        self.conv_3 = nn.Conv1d(kernel_size=self.k[2],**conv_args)
+        self.bn_3 = nn.BatchNorm1d(feature_len)
 
-        # todo: harded coded because I can LOL
-        self.fc_0 = nn.Linear(12 * 9, hidden_n)
-        self.fc_mu = nn.Linear(hidden_n, hidden_n)
-        self.fc_var = nn.Linear(hidden_n, hidden_n)
+        self.fc_0 = nn.Linear(feature_len * (max_seq_length + 3 - sum(self.k)), z_size)
+        self.fc_mu = nn.Linear(z_size, z_size)
+        self.fc_var = nn.Linear(z_size, z_size)
 
     def forward(self, x):
         batch_size = x.size()[0]
-        x = x.transpose(1, 2).contiguous()
+        # Conv1D expects dimension batch x channels x feature
+        # we treat the one-hot encoding as channels, but only convolve one channel at a time?
+        # why not just view() the array into the right shape?
+        x = x.transpose(1, 2)#.contiguous()
         x = F.relu(self.bn_1(self.conv_1(x)))
         x = F.relu(self.bn_2(self.conv_2(x)))
         x = F.relu(self.bn_3(self.conv_3(x)))
@@ -149,11 +157,22 @@ def apply_masks(x_true, x_pred, masks, ind_to_lhs_ind):
     out = x_resc /scaler2
     return out
 
+
 class GrammarVariationalAutoEncoder(nn.Module):
-    def __init__(self):
+    def __init__(self, z_size=200,
+                 hidden_n=200,
+                 feature_len=12,
+                 max_seq_length=15,
+                 encoder_kernel_sizes=(2,3,4)):
         super(GrammarVariationalAutoEncoder, self).__init__()
-        self.encoder = Encoder(15)
-        self.decoder = Decoder()
+        self.encoder = Encoder(max_seq_length=max_seq_length,
+                               encoder_kernel_sizes=encoder_kernel_sizes,
+                               z_size=z_size,
+                               feature_len=feature_len)
+        self.decoder = Decoder(z_size=z_size,
+                               hidden_n=hidden_n,
+                               feature_len=feature_len,
+                               max_seq_length=max_seq_length)
 
     def forward(self, x):
         batch_size = x.size()[0]
