@@ -164,7 +164,9 @@ class GrammarVariationalAutoEncoder(nn.Module):
                  hidden_n=200,
                  feature_len=12,
                  max_seq_length=15,
-                 encoder_kernel_sizes=(2,3,4)):
+                 encoder_kernel_sizes=(2,3,4),
+                 drop_rate = 0.0,
+                 sample_z = True):
         super(GrammarVariationalAutoEncoder, self).__init__()
         self.encoder = to_gpu(Encoder(max_seq_length=max_seq_length,
                                encoder_kernel_sizes=encoder_kernel_sizes,
