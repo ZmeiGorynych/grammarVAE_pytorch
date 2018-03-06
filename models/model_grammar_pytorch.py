@@ -2,7 +2,7 @@ import torch
 from torch.autograd import Variable
 import torch.nn as nn
 import torch.nn.functional as F
-from gpu_utils import FloatTensor, IntTensor, to_gpu
+from basic_pytorch.gpu_utils import FloatTensor, IntTensor, to_gpu
 
 class Decoder(nn.Module):
     # implementation matches model_eq.py _buildDecoder, at least in intent

@@ -2,7 +2,7 @@ from __future__ import print_function
 import nltk
 #import pdb
 from models.grammar_helper import grammar_zinc
-from grammar_variational_autoencoder.models.grammar_ed_models import get_zinc_tokenizer
+from grammarVAE_pytorch.models.grammar_ed_models import get_zinc_tokenizer
 import numpy as np
 import h5py
 

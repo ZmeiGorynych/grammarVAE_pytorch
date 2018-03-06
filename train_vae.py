@@ -5,25 +5,32 @@ import torch.utils.data
 import torch.optim as optim
 from torch.autograd import Variable
 from torch.optim import lr_scheduler
+try:
+    import grammarVAE_pytorch
+except:
+    import sys
+    sys.path.append('..')
 
-from grammar_variational_autoencoder.models.grammar_helper import grammar_eq, grammar_zinc
-from models.model_grammar_pytorch import GrammarVariationalAutoEncoder, VAELoss
+from grammarVAE_pytorch.models.grammar_helper import grammar_eq, grammar_zinc
+from grammarVAE_pytorch.models.model_grammar_pytorch import GrammarVariationalAutoEncoder, VAELoss
 from basic_pytorch.fit import fit
 from basic_pytorch.data_utils.data_sources import DatasetFromHDF5, train_valid_loaders
 from basic_pytorch.gpu_utils import to_gpu, use_gpu
 
-EPOCHS = 1
-BATCH_SIZE = 200
-
+EPOCHS = 20
+BATCH_SIZE = 300
+my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 # TODO: get those from the correct GrammarModel instance?
-molecules = True
+molecules = False
 if molecules:
     grammar = grammar_zinc
     data_path = 'data/zinc_grammar_dataset.h5'
+    save_path = my_location + '/pretrained/my_molecules.mdl'
     max_seq_length = 277
 else:
     grammar = grammar_eq
     data_path = 'data/eq2_grammar_dataset.h5'
+    save_path = my_location + '/pretrained/my_molecules.mdl'
     max_seq_length = 15
 
 model_args = {'z_size': 56,
@@ -31,17 +38,6 @@ model_args = {'z_size': 56,
               'feature_len': len(grammar.GCFG.productions()),
               'max_seq_length': max_seq_length,
               'encoder_kernel_sizes': (2, 3, 4)}
-
-print('loading data...')
-
-# def kfold_loader(k, s, e=None):
-#     if not e:
-#         e = k
-#     with h5py.File(data_path, 'r') as h5f:
-#         result = np.concatenate([h5f['data'][i::k] for i in range(s, e)])
-#         return torch.FloatTensor(result)
-# print('done!')
-
 
 model = GrammarVariationalAutoEncoder(**model_args)
 optimizer = optim.Adam(model.parameters(), lr=2e-3)
@@ -64,12 +60,6 @@ train_loader, valid_loader = train_valid_loaders(DatasetFromHDF5(data_path,'data
                                                  valid_fraction=0.1,
                                                  batch_size=BATCH_SIZE,
                                                  pin_memory=use_gpu)
-# train_loader = torch.utils.data.DataLoader(kfold_loader(10, 1),
-#                                           batch_size=BATCH_SIZE,
-#                                           shuffle=False)
-# valid_loader = torch.utils.data.DataLoader(kfold_loader(10, 0, 1),
-#                                   batch_size=BATCH_SIZE,
-#                                   shuffle=False)
 
 train_gen = DuplicateIter(train_loader)
 valid_gen = DuplicateIter(valid_loader)
@@ -81,8 +71,7 @@ def loss_fn(model_out, data):
     output, mu, log_var = model_out
     return loss_obj(data, mu, log_var, output)
 
-my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-save_path=my_location + '/pretrained/test.mdl'
+
 
 fit(train_gen=train_gen,
     valid_gen=valid_gen,
@@ -92,7 +81,9 @@ fit(train_gen=train_gen,
     epochs=EPOCHS,
     loss_fn=loss_fn,
     save_path=save_path,
-    ignore_initial=-1)
+    dashboard= "My dashboard",
+    ignore_initial=10,
+    save_every=100)
 
 # test the Load method
 model2 = GrammarVariationalAutoEncoder(**model_args)
