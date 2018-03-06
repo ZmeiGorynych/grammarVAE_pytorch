@@ -9,4 +9,4 @@ __pychache__
 *.log
 
 # data files
-data
+data/*.h5

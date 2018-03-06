@@ -101,10 +101,10 @@ class GrammarHelper:
 
         # collect all lhs symbols, and the unique set of them
         all_lhs = [a.lhs().symbol() for a in self.GCFG.productions()]
-        lhs_list = []
+        self.lhs_list = []
         for a in all_lhs:
-            if a not in lhs_list:
-                lhs_list.append(a)
+            if a not in self.lhs_list:
+                self.lhs_list.append(a)
 
         self.D = len(self.GCFG.productions())
 
@@ -116,14 +116,14 @@ class GrammarHelper:
             for b in a.rhs():
                 if not isinstance(b,six.string_types):
                     s = b.symbol()
-                    self.rhs_map[count].extend(list(np.where(np.array(lhs_list) == s)[0]))
+                    self.rhs_map[count].extend(list(np.where(np.array(self.lhs_list) == s)[0]))
             count = count + 1
 
-        self.masks = np.zeros((len(lhs_list),self.D))
+        self.masks = np.zeros((len(self.lhs_list),self.D))
         count = 0
 
         # this tells us for each lhs symbol which productions rules should be masked
-        for sym in lhs_list:
+        for sym in self.lhs_list:
             is_in = np.array([a == sym for a in all_lhs], dtype=int).reshape(1,-1)
             self.masks[count] = is_in
             count = count + 1
@@ -138,7 +138,7 @@ class GrammarHelper:
 
         self.ind_to_lhs_ind = -np.ones(len(all_lhs), dtype=int)
         for i, a in enumerate(all_lhs):
-            for ind, un_a in enumerate(lhs_list):
+            for ind, un_a in enumerate(self.lhs_list):
                 if a == un_a:
                     self.ind_to_lhs_ind[i] = ind
 
@@ -147,6 +147,7 @@ class GrammarHelper:
             # 0 their masks so they can never be selected
             self.masks[:,29] = 0
             self.masks[:,31] = 0
+
 
 grammar_zinc = GrammarHelper(grammar_string_zinc, molecule_tweak=True)
 grammar_eq = GrammarHelper(grammar_string_eq, molecule_tweak=False)

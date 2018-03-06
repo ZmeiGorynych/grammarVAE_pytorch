@@ -61,7 +61,7 @@ class DuplicateIter:
 
 
 train_loader, valid_loader = train_valid_loaders(DatasetFromHDF5(data_path,'data'),
-                                                 valid_fraction=0.5,
+                                                 valid_fraction=0.1,
                                                  batch_size=BATCH_SIZE,
                                                  pin_memory=use_gpu)
 

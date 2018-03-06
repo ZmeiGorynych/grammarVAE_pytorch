@@ -91,8 +91,13 @@ class Encoder(nn.Module):
         return self.fc_mu(h), self.fc_var(h)
 
     def encode(self,x):
-        mu_, var_ = self.forward(x)
-        return mu_.data.numpy(), var_.data.numpy()
+        '''
+
+        :param x: a numpy array batch x seq x feature
+        :return:
+        '''
+        mu_, var_ = self.forward(Variable(FloatTensor(x)))
+        return mu_.data.cpu().numpy(), var_.data.cpu().numpy()
 
 #from visdom_helper.visdom_helper import Dashboard
 

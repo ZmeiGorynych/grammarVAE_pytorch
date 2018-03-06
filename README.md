@@ -8,3 +8,4 @@ generalize the code to work with both equations and molecules, and fix a minor b
 
 Instructions on how to install/run coming soon.
 
+Installing rdkit: conda install -c rdkit rdkit

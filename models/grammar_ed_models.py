@@ -4,6 +4,8 @@ import numpy as np
 
 import models
 import models.model_grammar_pytorch as models_torch
+import models.grammar_helper as grammar_helper
+
 
 class GrammarModel(object):
     def __init__(self,
@@ -40,7 +42,7 @@ class GrammarModel(object):
         """ Encode a list of smiles strings into the latent space """
         assert type(smiles) == list
         tokens = map(self._tokenize, smiles)
-        parse_trees = [self._parser.parse(t).next() for t in tokens]
+        parse_trees = [next(self._parser.parse(t)) for t in tokens]
         productions_seq = [tree.productions() for tree in parse_trees]
         indices = [np.array([self._prod_map[prod] for prod in entry], dtype=int) for entry in productions_seq]
         one_hot = np.zeros((len(indices), self.MAX_LEN, self._n_chars), dtype=np.float32)
@@ -105,7 +107,7 @@ class EquationGrammarModel(GrammarModel):
     def __init__(self, weights_file,
                  latent_rep_size=56,
                  max_len=15,
-                 grammar=models.grammar_eq,
+                 grammar=grammar_helper.grammar_eq,
                  model=models_torch.GrammarVariationalAutoEncoder,#models.model_eq.MoleculeVAE(),
                  tokenizer=eq_tokenizer):
         """ Load the (trained) zinc encoder/decoder, grammar model. """
@@ -138,7 +140,7 @@ def get_zinc_tokenizer(cfg):
 
     return tokenize
 
-zinc_tokenizer = get_zinc_tokenizer(models.grammar_zinc.GCFG)
+zinc_tokenizer = get_zinc_tokenizer(grammar_helper.grammar_zinc.GCFG)
 
 
 class ZincGrammarModel(GrammarModel):
@@ -146,7 +148,7 @@ class ZincGrammarModel(GrammarModel):
                  weights_file,
                  latent_rep_size=56,
                  max_len=277,
-                 grammar=models.grammar_zinc,
+                 grammar=grammar_helper.grammar_zinc,
                  model=models_torch.GrammarVariationalAutoEncoder,#models.model_zinc.MoleculeVAE(),
                  tokenizer=zinc_tokenizer):
         super().__init__(weights_file,
