@@ -12,12 +12,22 @@ from basic_pytorch.fit import fit
 from basic_pytorch.data_utils.data_sources import DatasetFromHDF5, train_valid_loaders
 from basic_pytorch.gpu_utils import to_gpu, use_gpu
 
-def train_vae(molecules = True, EPOCHS = None, BATCH_SIZE = None, lr = 2e-3):
-    my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+def train_vae(molecules = True,
+              EPOCHS = None,
+              BATCH_SIZE = None,
+              lr = 2e-3,
+              drop_rate = 0.0,
+              plot_ignore_initial = 10,
+              sample_z = True,
+              save_file = None):
+    root_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+    root_location = root_location + '/../'
     if molecules:
         grammar = grammar_zinc
-        data_path = 'data/zinc_grammar_dataset.h5'
-        save_path = my_location + '/pretrained/my_molecules.mdl'
+        data_path = root_location + 'data/zinc_grammar_dataset.h5'
+        if not save_file:
+            save_file = 'my_molecules.mdl'
+        save_path = root_location + 'pretrained/' + save_file
         max_seq_length = 277
         LATENT_SIZE = 56
         if not EPOCHS:
@@ -26,8 +36,10 @@ def train_vae(molecules = True, EPOCHS = None, BATCH_SIZE = None, lr = 2e-3):
             BATCH_SIZE = 850  # the most that the 12GB GPU on p2.xlarge will take
     else:
         grammar = grammar_eq
-        data_path = 'data/eq2_grammar_dataset.h5'
-        save_path = my_location + '/pretrained/my_equations.mdl'
+        data_path = root_location + 'data/eq2_grammar_dataset.h5'
+        if not save_file:
+            save_file = 'my_equations.mdl'
+        save_path = root_location + 'pretrained/' + save_file
         max_seq_length = 15
         LATENT_SIZE = 25
         if not EPOCHS:
@@ -40,7 +52,9 @@ def train_vae(molecules = True, EPOCHS = None, BATCH_SIZE = None, lr = 2e-3):
                   'hidden_n': 200,
                   'feature_len': len(grammar.GCFG.productions()),
                   'max_seq_length': max_seq_length,
-                  'encoder_kernel_sizes': (2, 3, 4)}
+                  'encoder_kernel_sizes': (2, 3, 4),
+                  'drop_rate': drop_rate,
+                  'sample_z': sample_z}
 
     model = GrammarVariationalAutoEncoder(**model_args)
     optimizer = optim.Adam(model.parameters(), lr=lr)
@@ -58,6 +72,9 @@ def train_vae(molecules = True, EPOCHS = None, BATCH_SIZE = None, lr = 2e-3):
                     yield (x,x)
             return gen()
 
+        def __len__(self):
+            return len(self.iterable)
+
 
     train_loader, valid_loader = train_valid_loaders(DatasetFromHDF5(data_path,'data'),
                                                      valid_fraction=0.1,
@@ -69,7 +86,7 @@ def train_vae(molecules = True, EPOCHS = None, BATCH_SIZE = None, lr = 2e-3):
 
     scheduler = lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.9)
 
-    loss_obj = VAELoss(grammar)
+    loss_obj = VAELoss(grammar, sample_z=sample_z)
     def loss_fn(model_out, data):
         output, mu, log_var = model_out
         return loss_obj(data, mu, log_var, output)
@@ -85,8 +102,7 @@ def train_vae(molecules = True, EPOCHS = None, BATCH_SIZE = None, lr = 2e-3):
         loss_fn=loss_fn,
         save_path=save_path,
         dashboard= "My dashboard",
-        ignore_initial=10,
-        save_every=100)
+        plot_ignore_initial=plot_ignore_initial)
 
 # test the Load method
 # model2 = GrammarVariationalAutoEncoder(**model_args)
