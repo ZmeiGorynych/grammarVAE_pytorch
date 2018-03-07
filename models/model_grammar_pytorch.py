@@ -63,11 +63,13 @@ class Decoder(nn.Module):
         return F.softmax(out,2), hidden_1, hidden_2, hidden_3
 
     def decode(self, z):
+        if 'numpy' in str(type(z)):
+            z = Variable(FloatTensor(z))
         # TODO: should actually be handling single vectors, not batches, dependent on dim?
         batch_size = z.size()[0]
-        h1, h2, h3 = self.decoder.init_hidden(batch_size)
-        output, h1, h2, h3 = self.decoder(z, h1, h2, h3)
-        return output.data.numpy()
+        h1, h2, h3 = self.init_hidden(batch_size)
+        output, h1, h2, h3 = self.forward(z, h1, h2, h3)
+        return output.data.cpu().numpy()
 
     def init_hidden(self, batch_size):
         # NOTE: assume only 1 layer no bi-direction
@@ -166,18 +168,22 @@ class VAELoss(nn.Module):
         # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
         # https://arxiv.org/abs/1312.6114
         # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
+        avg_mu = torch.sum(mu, dim=0) / batch_size
+        var = torch.mm(mu.t(), mu) / batch_size
+        var_err = var - Variable(to_gpu(torch.eye(z_size)))
+        mom_err = (avg_mu * avg_mu).sum() / z_size + var_err.abs().sum() / (z_size * z_size)
         if self.sample_z:
             KLD_element = mu.pow(2).add_(log_var.exp()).mul_(-1).add_(1).add_(log_var)
             KLD = torch.sum(KLD_element).mul_(-0.5)/batch_size
-            print('BCE',BCE.data[0],'KLD',KLD.data[0])
-            return BCE + KLD
+            KLD_ = KLD.data[0]
+            my_loss = BCE + KLD
         else:
-            avg_mu = torch.sum(mu,dim=0)/batch_size
-            var = torch.mm(mu.t(), mu)/batch_size
-            var_err = var - Variable(to_gpu(torch.eye(z_size)))
-            mom_err = (avg_mu*avg_mu).sum()/z_size + var_err.abs().sum()/(z_size*z_size)
-            print('BCE', BCE.data[0], 'mom_err', mom_err.data[0])
-            return BCE + mom_err
+            my_loss = BCE + mom_err
+            KLD_ = 0
+
+        self.metrics ={'BCE': BCE.data[0], 'KLD': KLD_, 'MomErr': mom_err.data[0]}
+        print(self.metrics)
+        return my_loss
 
 def apply_masks(x_true, x_pred, masks, ind_to_lhs_ind):
     '''
@@ -247,4 +253,5 @@ class GrammarVariationalAutoEncoder(nn.Module):
     def load(self, weights_file):
         print('Trying to load model parameters from ', weights_file)
         self.load_state_dict(torch.load(weights_file))
+        self.eval()
         print('Success!')

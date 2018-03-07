@@ -13,4 +13,5 @@ except:
 from grammarVAE_pytorch.train.main_train_vae import train_vae
 train_vae(molecules=True,
           BATCH_SIZE=500,
-          save_file='grammar_zinc_baseline.h5')
+          save_file='grammar_zinc_baseline.h5',
+          lr=1e-3)

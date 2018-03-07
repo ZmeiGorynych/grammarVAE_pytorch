@@ -12,7 +12,7 @@ with open(fname) as f:
     smiles = f.readlines()
 
 for i in range(len(smiles)):
-    smiles[ i ] = smiles[ i ].strip()
+    smiles[i] = smiles[i].strip()
 
 # We load the auto-encoder
 
@@ -30,10 +30,10 @@ import time
 
 smiles_rdkit = []
 
-max_len = len(smiles)
+max_len = 10#len(smiles)
 
 for i in range(max_len):#:
-    smiles_rdkit.append(MolToSmiles(MolFromSmiles(smiles[ i ])))
+    smiles_rdkit.append(MolToSmiles(MolFromSmiles(smiles[i])))
     if i%1000==0 and i>0:
         print(i)
 
@@ -41,13 +41,13 @@ latent_points = grammar_model.encode(smiles_rdkit)
 
 logP_values = []
 for i in range(max_len):
-    logP_values.append(Descriptors.MolLogP(MolFromSmiles(smiles_rdkit[ i ])))
+    logP_values.append(Descriptors.MolLogP(MolFromSmiles(smiles_rdkit[i])))
     if i%1000==0 and i>0:
         print(i)
 
 SA_scores = []
 for i in range(max_len):
-    SA_scores.append(-sascorer.calculateScore(MolFromSmiles(smiles_rdkit[ i ])))
+    SA_scores.append(-sascorer.calculateScore(MolFromSmiles(smiles_rdkit[i])))
     if i%1000==0 and i>0:
         print(i)
 
@@ -74,7 +74,7 @@ cycle_scores_normalized = (np.array(cycle_scores) - np.mean(cycle_scores)) / np.
 
 # We store the results
 latent_points = np.array(latent_points)
-np.savetxt('latent_faetures.txt', latent_points)
+np.savetxt('latent_features.txt', latent_points)
 
 targets = SA_scores_normalized + logP_values_normalized + cycle_scores_normalized
 np.savetxt('targets.txt', targets)
