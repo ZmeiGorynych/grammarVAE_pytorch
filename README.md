@@ -1,6 +1,6 @@
 WARNING: this is very much a work in progress, attempt to run at your own risk :)
 
-I will prettify these instructions once the code has converged somewhat, ideally by end of March 2018.
+I will prettify these instructions once the code has converged somewhat, hopefully by end of March 2018.
 
 Introduction:
 
