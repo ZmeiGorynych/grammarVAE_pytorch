@@ -75,11 +75,18 @@ class GrammarModel(object):
 
             # Identify non-terminals in RHS of selected production, and
             # push them onto the stack in reverse order
-            rhs = [filter(lambda a: (type(a) == nltk.grammar.Nonterminal) and (str(a) != 'None'),
-                          self._productions[i].rhs())
-                   for i in sampled_output]
-            for ix in range(S.shape[0]):
-                S[ix].extend(map(str, rhs[ix])[::-1])
+            # rhs = [filter(lambda a: (type(a) == nltk.grammar.Nonterminal) and (str(a) != 'None'),
+            #               self._productions[i].rhs()) for i in sampled_output]
+
+            rhs =[[x for x in self._productions[sampled_ind].rhs()
+                   if (type(x) == nltk.grammar.Nonterminal) and (str(x) != 'None')]
+                        for sampled_ind in sampled_output]
+
+
+            #rhs = [type(i) for i in sampled_output if (str(i) != 'None')]
+
+            for ix, this_rhs in enumerate(rhs):
+                S[ix].extend([str(x) for x in this_rhs[::-1]])
         return X_hat # , ln_p
 
     def decode(self, z):
