@@ -16,9 +16,7 @@ Instructions on how to install/run:
 
 Requirements are 
 
-* like in mkusner/grammarVAE except for tensorflow/keras; 
-
-in addition:
+* requirements.txt 
 
 * pytorch 0.4 and visdom, both should be installed from source.
 

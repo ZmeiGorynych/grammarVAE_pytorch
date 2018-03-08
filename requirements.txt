@@ -1,5 +1,12 @@
 h5py
-visdom
-torch
-torchvision
 nltk
+gpy
+gpyopt
+numpy
+scipy
+scikit-learn
+matplotlib
+pandas
+tables
+argparse
+progressbar
