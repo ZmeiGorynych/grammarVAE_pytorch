@@ -15,9 +15,9 @@ from basic_pytorch.gpu_utils import to_gpu, use_gpu
 def train_vae(molecules = True,
               EPOCHS = None,
               BATCH_SIZE = None,
-              lr = 2e-3,
+              lr = 2e-4,
               drop_rate = 0.0,
-              plot_ignore_initial = 10,
+              plot_ignore_initial = 0,
               sample_z = True,
               save_file = None):
     root_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
@@ -33,7 +33,7 @@ def train_vae(molecules = True,
         if not EPOCHS:
             EPOCHS = 100
         if not BATCH_SIZE:
-            BATCH_SIZE = 850  # the most that the 12GB GPU on p2.xlarge will take
+            BATCH_SIZE = 500  # the most that the 12GB GPU on p2.xlarge will take
     else:
         grammar = grammar_eq
         data_path = root_location + 'data/eq2_grammar_dataset.h5'
@@ -87,9 +87,9 @@ def train_vae(molecules = True,
     scheduler = lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.9)
 
     loss_obj = VAELoss(grammar, sample_z=sample_z)
-    def loss_fn(model_out, data):
-        output, mu, log_var = model_out
-        return loss_obj(data, mu, log_var, output)
+    # class Loss loss_fn(model_out, data):
+    #     output, mu, log_var = model_out
+    #     return loss_obj(data, mu, log_var, output)
 
 
 
@@ -99,7 +99,7 @@ def train_vae(molecules = True,
         optimizer=optimizer,
         scheduler=scheduler,
         epochs=EPOCHS,
-        loss_fn=loss_fn,
+        loss_fn=loss_obj,
         save_path=save_path,
         dashboard= "My dashboard",
         plot_ignore_initial=plot_ignore_initial)

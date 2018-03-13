@@ -1,3 +1,4 @@
+from collections import OrderedDict
 import torch
 from torch.autograd import Variable
 import torch.nn as nn
@@ -149,21 +150,23 @@ class VAELoss(nn.Module):
         self.masks = FloatTensor(grammar.masks)
         self.ind_to_lhs_ind = IntTensor(grammar.ind_to_lhs_ind)
 
-    # question: how is the loss function using the mu and variance?
-    def forward(self, x, mu:Variable, log_var, recon_x):
+    def forward(self, model_out, target_x):
         """gives the batch normalized Variational Error."""
-
-        batch_size = x.size()[0]
-        seq_len = x.size()[1]
+        model_out_x, mu, log_var = model_out
+        batch_size = target_x.size()[0]
+        seq_len = target_x.size()[1]
         z_size = mu.size()[1]
         if self.masks is not None:
-            recon_x = apply_masks(x,
-                                  recon_x,
+            model_out_x = apply_masks(target_x,
+                                  model_out_x,
                                   self.masks,
                                   self.ind_to_lhs_ind
                                   )
         # added regularization by seq_len as KL term too weak otherwise
-        BCE = self.bce_loss(recon_x, x)/(seq_len*batch_size)
+        if torch.max(model_out_x) > 1.0 or torch.min(model_out_x) <0.0:
+            pass
+
+        BCE = self.bce_loss(model_out_x, target_x) / (seq_len * batch_size)
         # see Appendix B from VAE paper:
         # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
         # https://arxiv.org/abs/1312.6114
@@ -171,7 +174,8 @@ class VAELoss(nn.Module):
         avg_mu = torch.sum(mu, dim=0) / batch_size
         var = torch.mm(mu.t(), mu) / batch_size
         var_err = var - Variable(to_gpu(torch.eye(z_size)))
-        mom_err = (avg_mu * avg_mu).sum() / z_size + var_err.abs().sum() / (z_size * z_size)
+        var_err = F.tanh(var_err)*var_err
+        mom_err = (avg_mu * avg_mu).sum() / z_size + var_err.sum() / (z_size * z_size)
         if self.sample_z:
             KLD_element = mu.pow(2).add_(log_var.exp()).mul_(-1).add_(1).add_(log_var)
             KLD = torch.sum(KLD_element).mul_(-0.5)/batch_size
@@ -180,9 +184,14 @@ class VAELoss(nn.Module):
         else:
             my_loss = BCE + mom_err
             KLD_ = 0
+        if not self.training:
+            # ignore regularizers when computing validation loss
+            my_loss = BCE
 
-        self.metrics ={'BCE': BCE.data[0], 'KLD': KLD_, 'MomErr': mom_err.data[0]}
-        print(self.metrics)
+        self.metrics =OrderedDict([('BCE', BCE.data[0]),
+                                   ('KLD', KLD_),
+                                   ('ME', mom_err.data[0])])
+        #print(self.metrics)
         return my_loss
 
 def apply_masks(x_true, x_pred, masks, ind_to_lhs_ind):
@@ -207,7 +216,7 @@ def apply_masks(x_true, x_pred, masks, ind_to_lhs_ind):
     # and rescale the softmax to sum=1 again
     scaler = torch.sum(x_resc, dim=2, keepdim=True)
     scaler2 = torch.cat([scaler]*x_size[2], dim=2)
-    out = x_resc /scaler2
+    out = x_resc /(scaler2 + 1e-6)
     return out
 
 

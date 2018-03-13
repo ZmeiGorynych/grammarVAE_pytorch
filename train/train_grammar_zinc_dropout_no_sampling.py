@@ -13,6 +13,6 @@ except:
 from grammarVAE_pytorch.train.main_train_vae import train_vae
 train_vae(molecules=True,
           BATCH_SIZE=500,
-          drop_rate=0.2,
+          drop_rate=0.4,
           sample_z=False,
           save_file='grammar_zinc_dropout_no_sampling.h5')
