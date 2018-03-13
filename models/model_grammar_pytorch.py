@@ -3,82 +3,8 @@ import torch
 from torch.autograd import Variable
 import torch.nn as nn
 import torch.nn.functional as F
-from basic_pytorch.gpu_utils import FloatTensor, IntTensor, to_gpu, get_gpu_memory_map
-
-class Decoder(nn.Module):
-    # implementation matches model_eq.py _buildDecoder, at least in intent
-    def __init__(self,
-                 z_size=200,
-                 hidden_n=200,
-                 feature_len=12,
-                 max_seq_length=15,
-                 drop_rate = 0.0):
-        super(Decoder, self).__init__()
-        self.max_seq_length = max_seq_length
-        self.hidden_n = hidden_n
-        self.num_layers = 3
-        self.output_feature_size = feature_len
-        # TODO: is the batchNorm applied on the correct dimension?
-        self.batch_norm = nn.BatchNorm1d(z_size)
-        self.fc_input = nn.Linear(z_size, hidden_n)
-        self.dropout_1 = nn.Dropout(drop_rate)
-        self.gru_1 = nn.GRU(input_size=hidden_n,
-                            hidden_size=hidden_n,
-                            batch_first=True,
-                            dropout=drop_rate,
-                            num_layers=self.num_layers)
-
-        self.gru_2 = nn.GRU(input_size=hidden_n,
-                            hidden_size=hidden_n,
-                            batch_first=True,
-                            dropout=drop_rate)
-
-        self.gru_3 = nn.GRU(input_size=hidden_n,
-                            hidden_size=hidden_n,
-                            batch_first=True,
-                            dropout=drop_rate)
-        self.dropout_2 = nn.Dropout(drop_rate)
-        self.fc_out = nn.Linear(hidden_n, feature_len)
-
-    def forward(self, encoded, hidden_1, hidden_2, hidden_3, beta=0.3, target_seq=None):
-        _batch_size = encoded.size()[0]
-
-        embedded = F.relu(self.fc_input(self.batch_norm(encoded))) \
-            .view(_batch_size, 1, -1) \
-            .repeat(1, self.max_seq_length, 1)
-        embedded =self.dropout_1(embedded)
-        out_3, hidden_1 = self.gru_1(embedded, hidden_1)
-        # batch_size, seq_length, hidden_size; batch_size, hidden_size
-        #out_1, hidden_1 = self.gru_1(embedded, hidden_1)
-        #out_2, hidden_2 = self.gru_2(out_1, hidden_2)
-        # NOTE: need to combine the input from previous layer with the expected output during training.
-        # NOTE: this bit is not in the Keras GrammarVAE code
-        # if self.training and target_seq:
-        #     out_2 = out_2 * (1 - beta) + target_seq * beta
-        #out_3, hidden_3 = self.gru_3(out_2, hidden_3)
-        tmp = self.dropout_2(out_3.contiguous().view(-1, self.hidden_n))
-        out = self.fc_out(tmp).view(_batch_size, self.max_seq_length,
-                                self.output_feature_size)
-        # WTF RELU(sigmoid)?
-        #return F.relu(F.sigmoid(out)), hidden_1, hidden_2, hidden_3
-        # just return the logits
-        return out, hidden_1, hidden_2, hidden_3#F.softmax(out,2), hidden_1, hidden_2, hidden_3
-
-    def decode(self, z):
-        if 'numpy' in str(type(z)):
-            z = Variable(FloatTensor(z))
-        # TODO: should actually be handling single vectors, not batches, dependent on dim?
-        batch_size = z.size()[0]
-        h1, h2, h3 = self.init_hidden(batch_size)
-        output, h1, h2, h3 = self.forward(z, h1, h2, h3)
-        return output.data.cpu().numpy()
-
-    def init_hidden(self, batch_size):
-        # NOTE: assume only 1 layer no bi-direction
-        h1 = Variable(to_gpu(torch.zeros(self.num_layers, batch_size, self.hidden_n)), requires_grad=False)
-        h2 = Variable(to_gpu(torch.zeros(1, batch_size, self.hidden_n)), requires_grad=False)
-        h3 = Variable(to_gpu(torch.zeros(1, batch_size, self.hidden_n)), requires_grad=False)
-        return h1, h2, h3
+from basic_pytorch.gpu_utils import FloatTensor, IntTensor, to_gpu
+from basic_pytorch.models.rnn_models import SimpleRNNDecoder,SimpleRNNAttentionEncoder
 
 
 class Encoder(nn.Module):
@@ -176,7 +102,7 @@ class VAELoss(nn.Module):
         avg_mu = torch.sum(mu, dim=0) / batch_size
         var = torch.mm(mu.t(), mu) / batch_size
         var_err = var - Variable(to_gpu(torch.eye(z_size)))
-        var_err = F.tanh(var_err)*var_err
+        var_err = F.tanh(var_err)*var_err # so it's ~ x^2 asymptotically, not x^4
         mom_err = (avg_mu * avg_mu).sum() / z_size + var_err.sum() / (z_size * z_size)
         if self.sample_z:
             KLD_element = mu.pow(2).add_(log_var.exp()).mul_(-1).add_(1).add_(log_var)
@@ -231,19 +157,30 @@ class GrammarVariationalAutoEncoder(nn.Module):
                  max_seq_length=15,
                  encoder_kernel_sizes=(2,3,4),
                  drop_rate = 0.0,
-                 sample_z = True):
+                 sample_z = True,
+                 rnn_encoder = False):
         super(GrammarVariationalAutoEncoder, self).__init__()
+        if rnn_encoder:
+            sample_z = False
         self.sample_z = sample_z
-        self.encoder = to_gpu(Encoder(max_seq_length=max_seq_length,
-                                      encoder_kernel_sizes=encoder_kernel_sizes,
-                                      z_size=z_size,
-                                      feature_len=feature_len,
-                                      drop_rate=drop_rate))
-        self.decoder = to_gpu(Decoder(z_size=z_size,
-                               hidden_n=hidden_n,
-                               feature_len=feature_len,
-                               max_seq_length=max_seq_length,
-                               drop_rate=drop_rate))
+        if rnn_encoder:
+            self.encoder = to_gpu(SimpleRNNAttentionEncoder(max_seq_length=max_seq_length,
+                                                     z_size=z_size,
+                                                     hidden_n=hidden_n,
+                                                     feature_len=feature_len,
+                                                     drop_rate = drop_rate))
+        else:
+            self.encoder = to_gpu(Encoder(encoder_kernel_sizes=encoder_kernel_sizes,
+                                          max_seq_length=max_seq_length,
+                                          z_size=z_size,
+                                          feature_len=feature_len,
+                                          drop_rate=drop_rate))
+
+        self.decoder = to_gpu(SimpleRNNDecoder(z_size=z_size,
+                                               hidden_n=hidden_n,
+                                               feature_len=feature_len,
+                                               max_seq_length=max_seq_length,
+                                               drop_rate=drop_rate))
 
     def forward(self, x):
         batch_size = x.size()[0]
@@ -253,8 +190,8 @@ class GrammarVariationalAutoEncoder(nn.Module):
             z = self.sample(mu, log_var)
         else:
             z = mu
-        h1, h2, h3 = self.decoder.init_hidden(batch_size)
-        output, h1, h2, h3 = self.decoder(z, h1, h2, h3)
+        h1 = self.decoder.init_hidden(batch_size)
+        output, h1 = self.decoder(z, h1)
         return output, mu, log_var
 
     def sample(self, mu, log_var):

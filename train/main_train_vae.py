@@ -19,7 +19,8 @@ def train_vae(molecules = True,
               drop_rate = 0.0,
               plot_ignore_initial = 0,
               sample_z = True,
-              save_file = None):
+              save_file = None,
+              rnn_encoder=False):
     root_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     root_location = root_location + '/../'
     if molecules:
@@ -54,7 +55,8 @@ def train_vae(molecules = True,
                   'max_seq_length': max_seq_length,
                   'encoder_kernel_sizes': (2, 3, 4),
                   'drop_rate': drop_rate,
-                  'sample_z': sample_z}
+                  'sample_z': sample_z,
+                  'rnn_encoder': rnn_encoder}
 
     model = GrammarVariationalAutoEncoder(**model_args)
     optimizer = optim.Adam(model.parameters(), lr=lr)
