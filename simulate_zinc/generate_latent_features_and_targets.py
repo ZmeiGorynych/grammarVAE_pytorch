@@ -1,65 +1,65 @@
 from rdkit.Chem import Descriptors
 from rdkit.Chem import rdmolops
+from rdkit.Chem import MolFromSmiles, MolToSmiles
 import sascorer
 import numpy as np  
+import os, inspect
+import networkx as nx
 
+from grammarVAE_pytorch.models import grammar_ed_models as grammar_model
+
+# We load the auto-encoder
+# my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+# grammar_weights = my_location + '/pretrained/my_molecules.mdl'
+# grammar_model = grammar_model.ZincGrammarModel(grammar_weights)
+# z = grammar_model.encode(['c1nccc2n1ccc2'])
+# print(type(z))
+# new_smile = grammar_model.decode(z)
+# print(new_smile)
 # We load the smiles data
 from models import grammar_ed_models as grammar_model
+my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+fname = my_location + '/../data/250k_rndm_zinc_drugs_clean.smi'
+# mock_latent_points = np.random.normal(size=latent_points.shape)
+# mock_smiles = grammar_model.decode(mock_latent_points)
+# mock_mols = []
 
-fname = '../../data/250k_rndm_zinc_drugs_clean.smi'
-
+# for m in mock_smiles:
+#     mock_mols.append(MolFromSmiles(m))
+smiles_rdkit = []
 with open(fname) as f:
     smiles = f.readlines()
 
-for i in range(len(smiles)):
-    smiles[i] = smiles[i].strip()
+smiles = [s.strip() for s in smiles]
+#    smiles[i] = smiles[i].strip()
 
 # We load the auto-encoder
+max_len = len(smiles) #10
 
 import sys
-sys.path.insert(0, '../../')
+sys.path.insert(0, my_location + '/../')
 
-grammar_weights = '../../pretrained/my_molecules.mdl'
-grammar_model = grammar_model.ZincGrammarModel(grammar_weights)
-
-from rdkit.Chem import MolFromSmiles, MolToSmiles
-from rdkit.Chem import Draw
-#import image
-import copy
-import time
-
-smiles_rdkit = []
-
-max_len = 10#len(smiles)
+grammar_weights = my_location + '/../pretrained/dropout_no_sampling_rnn_encoder.h5'
+grammar_model = grammar_model.ZincGrammarModel(grammar_weights, rnn_encoder=True)
 
 for i in range(max_len):#:
     smiles_rdkit.append(MolToSmiles(MolFromSmiles(smiles[i])))
     if i%1000==0 and i>0:
         print(i)
-
+print('Encoding the molecules...')
 latent_points = grammar_model.encode(smiles_rdkit)
-
+print('Calculating the scores...')
 logP_values = []
-for i in range(max_len):
-    logP_values.append(Descriptors.MolLogP(MolFromSmiles(smiles_rdkit[i])))
-    if i%1000==0 and i>0:
-        print(i)
-
 SA_scores = []
-for i in range(max_len):
-    SA_scores.append(-sascorer.calculateScore(MolFromSmiles(smiles_rdkit[i])))
-    if i%1000==0 and i>0:
-        print(i)
-
-import networkx as nx
-
 cycle_scores = []
 for i in range(max_len):
+    logP_values.append(Descriptors.MolLogP(MolFromSmiles(smiles_rdkit[i])))
+    SA_scores.append(-sascorer.calculateScore(MolFromSmiles(smiles_rdkit[i])))
     cycle_list = nx.cycle_basis(nx.Graph(rdmolops.GetAdjacencyMatrix(MolFromSmiles(smiles_rdkit[ i ]))))
     if len(cycle_list) == 0:
         cycle_length = 0
     else:
-        cycle_length = max([ len(j) for j in cycle_list ])
+        cycle_length = max([len(j) for j in cycle_list])
     if cycle_length <= 6:
         cycle_length = 0
     else:

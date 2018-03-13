@@ -12,8 +12,8 @@ except:
 
 from grammarVAE_pytorch.train.main_train_vae import train_vae
 train_vae(molecules=True,
-          BATCH_SIZE=50,
-          drop_rate=0.4,
+          BATCH_SIZE=300,
+          drop_rate=0.5,
           sample_z=False,
           save_file='dropout_no_sampling_rnn_encoder.h5',
           rnn_encoder = True)

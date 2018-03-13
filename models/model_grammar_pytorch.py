@@ -60,9 +60,7 @@ class Encoder(nn.Module):
         :return:
         '''
         mu_, var_ = self.forward(Variable(FloatTensor(x)))
-        return mu_.data.cpu().numpy(), var_.data.cpu().numpy()
-
-#from visdom_helper.visdom_helper import Dashboard
+        return mu_.data.cpu().numpy()
 
 
 class VAELoss(nn.Module):

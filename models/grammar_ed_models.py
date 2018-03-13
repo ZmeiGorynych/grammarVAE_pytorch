@@ -10,6 +10,7 @@ import models.grammar_helper as grammar_helper
 class GrammarModel(object):
     def __init__(self,
                  weights_file,
+                 rnn_encoder=True,
                  latent_rep_size=None,
                  max_len = None,
                  grammar = None,
@@ -33,7 +34,8 @@ class GrammarModel(object):
         # assume model hidden_n and encoder_kernel_size are always the same
         self.vae = model(z_size=latent_rep_size,
                          feature_len=len(self._productions),
-                         max_seq_length=self.MAX_LEN)
+                         max_seq_length=self.MAX_LEN,
+                         rnn_encoder=rnn_encoder)
         self.vae.load(weights_file)
 
 
@@ -51,7 +53,7 @@ class GrammarModel(object):
             one_hot[i][np.arange(num_productions),indices[i]] = 1.
             one_hot[i][np.arange(num_productions, self.MAX_LEN),-1] = 1.
         self.one_hot = one_hot
-        z_mean, z_var = self.vae.encoder.encode(one_hot)
+        z_mean = self.vae.encoder.encode(one_hot)
         return z_mean
 
     def _sample_using_masks(self, unmasked):
@@ -153,12 +155,14 @@ zinc_tokenizer = get_zinc_tokenizer(grammar_helper.grammar_zinc.GCFG)
 class ZincGrammarModel(GrammarModel):
     def __init__(self,
                  weights_file,
+                 rnn_encoder=True,
                  latent_rep_size=56,
                  max_len=277,
                  grammar=grammar_helper.grammar_zinc,
                  model=models_torch.GrammarVariationalAutoEncoder,#models.model_zinc.MoleculeVAE(),
                  tokenizer=zinc_tokenizer):
         super().__init__(weights_file,
+                         rnn_encoder=rnn_encoder,
                          latent_rep_size=latent_rep_size,
                          max_len=max_len,
                          grammar=grammar,
