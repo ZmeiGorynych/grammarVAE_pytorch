@@ -58,10 +58,11 @@ class Decoder(nn.Module):
         #out_3, hidden_3 = self.gru_3(out_2, hidden_3)
         tmp = self.dropout_2(out_3.contiguous().view(-1, self.hidden_n))
         out = self.fc_out(tmp).view(_batch_size, self.max_seq_length,
-                                                                           self.output_feature_size)
+                                self.output_feature_size)
         # WTF RELU(sigmoid)?
         #return F.relu(F.sigmoid(out)), hidden_1, hidden_2, hidden_3
-        return F.softmax(out,2), hidden_1, hidden_2, hidden_3
+        # just return the logits
+        return out, hidden_1, hidden_2, hidden_3#F.softmax(out,2), hidden_1, hidden_2, hidden_3
 
     def decode(self, z):
         if 'numpy' in str(type(z)):
@@ -162,10 +163,11 @@ class VAELoss(nn.Module):
                                   self.masks,
                                   self.ind_to_lhs_ind
                                   )
-        # added regularization by seq_len as KL term too weak otherwise
-        if torch.max(model_out_x) > 1.0 or torch.min(model_out_x) <0.0:
-            pass
-
+        # added normalization by seq_len as KL term too weak otherwise
+        # if torch.max(model_out_x) > 1.0 or torch.min(model_out_x) <0.0:
+        #     pass
+        model_out_x = F.softmax(model_out_x, dim=2)
+        #BCE = -(nn.LogSoftmax(dim=2)(model_out_x)*target_x).sum()/(seq_len * batch_size)
         BCE = self.bce_loss(model_out_x, target_x) / (seq_len * batch_size)
         # see Appendix B from VAE paper:
         # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
@@ -198,12 +200,14 @@ def apply_masks(x_true, x_pred, masks, ind_to_lhs_ind):
     '''
     Apply grammar transition rules to a softmax matrix
     :param x_true: Variable of actual transitions, one-hot encoded, batch x sequence x element
-    :param x_pred: Variable of probabilities, past softmax, same shape as x_true
+    :param x_pred: Variable of logits, same shape as x_true
     :return: x_pred zeroed out and rescaled
     '''
 
     x_size = x_true.size()
     mask = to_gpu(torch.ones(*x_size))
+    # adding this to an element will move it to at least min - 100
+    shift_to_tiny = -100 + (x_pred.min() - x_pred.max())
     for i in range(0,x_size[0]):
         for j in range(0, x_size[1]):
             # argmax
@@ -212,11 +216,11 @@ def apply_masks(x_true, x_pred, masks, ind_to_lhs_ind):
             mask[i,j,:] = masks[ind_to_lhs_ind[true_rule_ind]]
 
     # nuke the transitions prohibited if we follow x_true
-    x_resc = x_pred * Variable(mask)
+    x_resc = x_pred + ( 1 - Variable(mask))*shift_to_tiny
     # and rescale the softmax to sum=1 again
-    scaler = torch.sum(x_resc, dim=2, keepdim=True)
-    scaler2 = torch.cat([scaler]*x_size[2], dim=2)
-    out = x_resc /(scaler2 + 1e-6)
+    #scaler = torch.sum(x_resc, dim=2, keepdim=True)
+    #scaler2 = torch.cat([scaler]*x_size[2], dim=2)
+    out = x_resc #/(scaler2 + 1e-6)
     return out
 
 
@@ -244,7 +248,8 @@ class GrammarVariationalAutoEncoder(nn.Module):
     def forward(self, x):
         batch_size = x.size()[0]
         mu, log_var = self.encoder(x)
-        if self.sample_z:
+        # only sample when training, I regard sampling as a regularization technique
+        if self.sample_z and self.training:
             z = self.sample(mu, log_var)
         else:
             z = mu
