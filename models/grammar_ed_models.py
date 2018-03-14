@@ -2,19 +2,21 @@ import re
 import nltk
 import numpy as np
 
-import models
-import models.model_grammar_pytorch as models_torch
-import models.grammar_helper as grammar_helper
+
+
+import grammarVAE_pytorch.models.model_grammar_pytorch as models_torch
+import grammarVAE_pytorch.models.grammar_helper as grammar_helper
 
 
 class GrammarModel(object):
     def __init__(self,
                  weights_file =None,
+                 model = None,
                  rnn_encoder=True,
                  latent_rep_size=None,
                  max_len = None,
                  grammar = None,
-                 model=models_torch.GrammarVariationalAutoEncoder,
+                 model_type=models_torch.GrammarVariationalAutoEncoder,
                  tokenizer = None):
         """ Load the (trained) zinc encoder/decoder, grammar model. """
         self.grammar = grammar
@@ -31,11 +33,12 @@ class GrammarModel(object):
         self._lhs_map = {}
         for ix, lhs in enumerate(self.grammar.lhs_list):
             self._lhs_map[lhs] = ix
-
-        if weights_file is not None:
+        if model is not None:
+            self.vae = model
+        elif weights_file is not None:
             # assume model hidden_n and encoder_kernel_size are always the same
             # TODO: should make better use of model_settings here!
-            self.vae = model(z_size=latent_rep_size,
+            self.vae = model_type(z_size=latent_rep_size,
                              feature_len=len(self._productions),
                              max_seq_length=self.MAX_LEN,
                              rnn_encoder=rnn_encoder)
@@ -122,10 +125,11 @@ def eq_tokenizer(s):
 
 class EquationGrammarModel(GrammarModel):
     def __init__(self, weights_file = None,
+                 model=None,
                  latent_rep_size=56,
                  max_len=15,
                  grammar=grammar_helper.grammar_eq,
-                 model=models_torch.GrammarVariationalAutoEncoder,#models.model_eq.MoleculeVAE(),
+                 model_type=models_torch.GrammarVariationalAutoEncoder,#models.model_eq.MoleculeVAE(),
                  tokenizer=eq_tokenizer):
         """ Load the (trained) zinc encoder/decoder, grammar model. """
         super().__init__(weights_file,
@@ -133,6 +137,7 @@ class EquationGrammarModel(GrammarModel):
                          max_len=max_len,
                          grammar=grammar,
                          model=model,
+                         model_type=model_type,
                          tokenizer=tokenizer)
 
 def get_zinc_tokenizer(cfg):
@@ -157,16 +162,17 @@ def get_zinc_tokenizer(cfg):
 
     return tokenize
 
+# TODO: get all the zinc vs eq bits from model_settings!
 zinc_tokenizer = get_zinc_tokenizer(grammar_helper.grammar_zinc.GCFG)
-
 class ZincGrammarModel(GrammarModel):
     def __init__(self,
                  weights_file=None,
+                 model=None,
                  rnn_encoder=True,
                  latent_rep_size=56,
                  max_len=277,
                  grammar=grammar_helper.grammar_zinc,
-                 model=models_torch.GrammarVariationalAutoEncoder,#models.model_zinc.MoleculeVAE(),
+                 model_type =models_torch.GrammarVariationalAutoEncoder,#models.model_zinc.MoleculeVAE(),
                  tokenizer=zinc_tokenizer):
         super().__init__(weights_file,
                          rnn_encoder=rnn_encoder,
@@ -174,6 +180,7 @@ class ZincGrammarModel(GrammarModel):
                          max_len=max_len,
                          grammar=grammar,
                          model=model,
+                         model_type=model_type,
                          tokenizer=tokenizer)
 
 
@@ -195,3 +202,19 @@ def prods_to_eq(prods):
         return ''.join(seq)
     except:
         return ''
+
+try:
+    # inside a try-catch block so the rest also runs without rdkit
+    from rdkit.Chem import MolFromSmiles
+
+    def fraction_valid(smiles):
+        valid = [s for s in smiles if s != '' and MolFromSmiles(s) is not None]
+        invalid = [s for s in smiles if s != '' and MolFromSmiles(s) is None]
+        valid_lens = [len(MolFromSmiles(s).GetAtoms()) for s in valid]
+        num_valid = len(valid_lens)
+        avg_len = sum(valid_lens) / (len(valid_lens) + 1e-6)
+        max_len = 0 if not len(valid_lens) else max(valid_lens)
+        print(valid)
+        return (num_valid, avg_len, max_len), (valid,invalid)
+except:
+    pass

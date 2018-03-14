@@ -4,7 +4,7 @@ from torch.optim import lr_scheduler
 
 from grammarVAE_pytorch.models.grammar_helper import grammar_eq, grammar_zinc
 from grammarVAE_pytorch.models.model_grammar_pytorch import GrammarVariationalAutoEncoder
-from models.model_loss import VAELoss
+from grammarVAE_pytorch.models.model_loss import VAELoss
 from basic_pytorch.fit import fit
 from basic_pytorch.data_utils.data_sources import DatasetFromHDF5, train_valid_loaders, DuplicateIter
 from basic_pytorch.gpu_utils import use_gpu
@@ -19,7 +19,8 @@ def train_vae(molecules = True,
               sample_z = True,
               save_file = None,
               rnn_encoder=False,
-              plot_prefix = ''):
+              plot_prefix = '',
+              dashboard = 'main'):
     root_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     root_location = root_location + '/../'
     save_path = root_location + 'pretrained/' + save_file
@@ -58,7 +59,7 @@ def train_vae(molecules = True,
         epochs=settings['EPOCHS'],
         loss_fn=loss_obj,
         save_path=save_path,
-        dashboard= "My dashboard",
+        dashboard=dashboard,
         plot_ignore_initial=plot_ignore_initial,
                  plot_prefix=plot_prefix)
 

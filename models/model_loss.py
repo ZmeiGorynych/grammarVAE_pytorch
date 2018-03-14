@@ -43,7 +43,7 @@ class VAELoss(nn.Module):
         model_out_x = F.softmax(model_out_x, dim=2)
         #BCE = -(nn.LogSoftmax(dim=2)(model_out_x)*target_x).sum()/(seq_len * batch_size)
         BCE = self.bce_loss(model_out_x, target_x) / (seq_len * batch_size)
-        FV, avg_len, max_len = fraction_valid(model_out_x.data.cpu().numpy())
+        #FV, avg_len, max_len = fraction_valid(model_out_x.data.cpu().numpy())
         # see Appendix B from VAE paper:
         # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
         # https://arxiv.org/abs/1312.6114
@@ -67,30 +67,13 @@ class VAELoss(nn.Module):
 
         self.metrics =OrderedDict([('BCE', BCE.data[0]),
                                    ('KLD', KLD_),
-                                   ('ME', mom_err.data[0]),
-                                   ('FV', FV),
-                                   ('avg_len', avg_len),
-                                   ('max_len',max_len)])
+                                   ('ME', mom_err.data[0])])
+                                   # ('FV', FV)])#,
+                                   # ('avg_len', avg_len),
+                                   # ('max_len',max_len)])
         #print(self.metrics)
         return my_loss
 
-try:
-    # this is in a try-catch block so the model also runs when rdkit is not installed
-    from rdkit.Chem import MolFromSmiles
-    grammar_model = GrammarModel()
-    def fraction_valid(model_out):
-        smiles = grammar_model.decode_from_onehot(model_out)
-        valid = [s for s in smiles if s != '' and MolFromSmiles(s) is not None]
-        valid_lens = [len(MolFromSmiles(s).GetAtoms()) for s in valid]
-        frac_valid = len(valid_lens)/len(smiles)
-        avg_len = sum(valid_lens)/(len(valid_lens)+1e-6)
-        max_len = 0 if not len(valid_lens) else max(valid_lens)
-        print(valid)
-        return frac_valid, avg_len, max_len
-except:
-    def fraction_valid(model_out):
-        print('Please install rdkit to get fraction of valid molecules in latest run')
-        return 0
 
 def apply_masks(x_true, x_pred, masks, ind_to_lhs_ind):
     '''
