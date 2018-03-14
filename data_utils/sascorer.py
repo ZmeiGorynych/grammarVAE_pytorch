@@ -29,11 +29,11 @@ from collections import defaultdict
 import os.path as op
 
 _fscores = None
-def readFragmentScores(name='data/fpscores'):
+def readFragmentScores(name='../data/fpscores'):
     import gzip
     global _fscores
     # generate the full path filename:
-    if name == "data/fpscores":
+    if name == "../data/fpscores":
         name = op.join(op.dirname(__file__), name)
     _fscores = pickle.load(gzip.open('%s.pkl.gz'%name))#cPickle.load(gzip.open('%s.pkl.gz'%name))
     outDict = {}

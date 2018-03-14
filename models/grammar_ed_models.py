@@ -9,7 +9,7 @@ import models.grammar_helper as grammar_helper
 
 class GrammarModel(object):
     def __init__(self,
-                 weights_file,
+                 weights_file =None,
                  rnn_encoder=True,
                  latent_rep_size=None,
                  max_len = None,
@@ -17,30 +17,31 @@ class GrammarModel(object):
                  model=models_torch.GrammarVariationalAutoEncoder,
                  tokenizer = None):
         """ Load the (trained) zinc encoder/decoder, grammar model. """
-        self._grammar = grammar
+        self.grammar = grammar
         #self._model = model
         self._tokenize = tokenizer
         self.MAX_LEN = max_len
 
-        self._productions = self._grammar.GCFG.productions()
+        self._productions = self.grammar.GCFG.productions()
         self._prod_map = {}
         for ix, prod in enumerate(self._productions):
             self._prod_map[prod] = ix
-        self._parser = nltk.ChartParser(self._grammar.GCFG)
+        self._parser = nltk.ChartParser(self.grammar.GCFG)
         self._n_chars = len(self._productions)
         self._lhs_map = {}
-        for ix, lhs in enumerate(self._grammar.lhs_list):
+        for ix, lhs in enumerate(self.grammar.lhs_list):
             self._lhs_map[lhs] = ix
-        # assume model hidden_n and encoder_kernel_size are always the same
-        self.vae = model(z_size=latent_rep_size,
-                         feature_len=len(self._productions),
-                         max_seq_length=self.MAX_LEN,
-                         rnn_encoder=rnn_encoder)
-        self.vae.load(weights_file)
 
+        if weights_file is not None:
+            # assume model hidden_n and encoder_kernel_size are always the same
+            # TODO: should make better use of model_settings here!
+            self.vae = model(z_size=latent_rep_size,
+                             feature_len=len(self._productions),
+                             max_seq_length=self.MAX_LEN,
+                             rnn_encoder=rnn_encoder)
+            self.vae.load(weights_file)
 
-
-    def encode(self, smiles):
+    def smiles_to_one_hot(self,smiles):
         """ Encode a list of smiles strings into the latent space """
         assert type(smiles) == list
         tokens = map(self._tokenize, smiles)
@@ -50,9 +51,13 @@ class GrammarModel(object):
         one_hot = np.zeros((len(indices), self.MAX_LEN, self._n_chars), dtype=np.float32)
         for i in range(len(indices)):
             num_productions = len(indices[i])
-            one_hot[i][np.arange(num_productions),indices[i]] = 1.
-            one_hot[i][np.arange(num_productions, self.MAX_LEN),-1] = 1.
-        self.one_hot = one_hot
+            one_hot[i][np.arange(num_productions), indices[i]] = 1.
+            one_hot[i][np.arange(num_productions, self.MAX_LEN), -1] = 1.
+        #self.one_hot = one_hot
+        return one_hot
+
+    def encode(self, smiles):
+        one_hot = self.smiles_to_one_hot(smiles)
         z_mean = self.vae.encoder.encode(one_hot)
         return z_mean
 
@@ -65,12 +70,12 @@ class GrammarModel(object):
         # Create a stack for each input in the batch
         S = np.empty((unmasked.shape[0],), dtype=object)
         for ix in range(S.shape[0]):
-            S[ix] = [str(self._grammar.start_index)]
+            S[ix] = [str(self.grammar.start_index)]
 
         # Loop over time axis, sampling values and updating masks
         for t in range(unmasked.shape[1]):
             next_nonterminal = [self._lhs_map[pop_or_nothing(a)] for a in S]
-            mask = self._grammar.masks[next_nonterminal]
+            mask = self.grammar.masks[next_nonterminal]
             masked_output = np.exp(unmasked[:,t,:])*mask + eps
             sampled_output = np.argmax(np.random.gumbel(size=masked_output.shape) + np.log(masked_output), axis=-1)
             X_hat[np.arange(unmasked.shape[0]),t,sampled_output] = 1.0
@@ -93,15 +98,18 @@ class GrammarModel(object):
 
     def decode(self, z):
         """ Sample from the grammar decoder """
-        # TODO: WHY ndim = 2?
         assert z.ndim == 2
         unmasked = self.vae.decoder.decode(z)
+        return self.decode_from_onehot(unmasked)
+        
+    def decode_from_onehot(self, unmasked):
         X_hat = self._sample_using_masks(unmasked)
         # Convert from one-hot to sequence of production rules
         prod_seq = [[self._productions[X_hat[index,t].argmax()]
                      for t in range(X_hat.shape[1])]
                     for index in range(X_hat.shape[0])]
         return [prods_to_eq(prods) for prods in prod_seq]
+
 
 
 def eq_tokenizer(s):
@@ -113,7 +121,7 @@ def eq_tokenizer(s):
 
 
 class EquationGrammarModel(GrammarModel):
-    def __init__(self, weights_file,
+    def __init__(self, weights_file = None,
                  latent_rep_size=56,
                  max_len=15,
                  grammar=grammar_helper.grammar_eq,
@@ -151,10 +159,9 @@ def get_zinc_tokenizer(cfg):
 
 zinc_tokenizer = get_zinc_tokenizer(grammar_helper.grammar_zinc.GCFG)
 
-
 class ZincGrammarModel(GrammarModel):
     def __init__(self,
-                 weights_file,
+                 weights_file=None,
                  rnn_encoder=True,
                  latent_rep_size=56,
                  max_len=277,
