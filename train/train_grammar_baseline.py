@@ -9,9 +9,23 @@ except:
     import sys, os, inspect
     my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     sys.path.append('../..')
-
 from grammarVAE_pytorch.train.main_train_vae import train_vae
-train_vae(molecules=True,
-          BATCH_SIZE=500,
-          save_file='grammar_zinc_baseline.h5',
-          lr=1e-3)
+
+molecules = False
+
+if molecules:
+    save_file = 'grammar_zinc_baseline.h5'
+else:
+    save_file = 'grammar_eq_baseline.h5'
+
+
+model, fitter = train_vae(molecules=molecules,
+                          BATCH_SIZE=50,
+                          save_file=save_file,
+                          sample_z=True,
+                          rnn_encoder=False,
+                          lr=1e-3)
+
+while True:
+    next(fitter)
+

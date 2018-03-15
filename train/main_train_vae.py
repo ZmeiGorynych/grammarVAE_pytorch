@@ -20,7 +20,8 @@ def train_vae(molecules = True,
               save_file = None,
               rnn_encoder=False,
               plot_prefix = '',
-              dashboard = 'main'):
+              dashboard = 'main',
+              preload_weights=False):
     root_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     root_location = root_location + '/../'
     save_path = root_location + 'pretrained/' + save_file
@@ -37,6 +38,11 @@ def train_vae(molecules = True,
 
     model_args = get_model_args(molecules, drop_rate, sample_z, rnn_encoder)
     model = GrammarVariationalAutoEncoder(**model_args)
+    if preload_weights:
+        try:
+            model.load(save_path)
+        except:
+            pass
 
     optimizer = optim.Adam(model.parameters(), lr=lr)
 

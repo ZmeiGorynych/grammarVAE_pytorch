@@ -26,11 +26,13 @@ Requirements are
 
 
 How to run:
-* `data_utils/make_zinc_dataset_grammar.py` creates the hd5 dataset necessary to train the grammar model.
-* `train/train_grammar_zinc_baseline.py` trains the model (doesn't converge very well yet, need to tweak)
+* `data_utils/make_dataset_grammar.py` creates the hd5 dataset necessary to train the grammar model. 
+Set the `molecules` boolean at its start to decide whether to generate the dataset for molecules or equations.
+* `train/train_grammar_baseline.py` trains the model - again set the `molecules` boolean to choose the dataset (doesn't converge very well yet, need to tweak)
 * `back_and_forth.py` tries to go the full cycle from a SMILES string to a latent space vector and back. As it's using poorly trained weights for now, expect the generated strings to be garbage :)
 * `notebooks/PrettyPic.ipynb` draws a pretty picture of a molecule from a SMILES string
 
 Major things left to do:
 * Tune the training of the model
+* Make the model work on strings too (currently just grammars)
 * Port Bayesian optimization to use gpy and gpyopt

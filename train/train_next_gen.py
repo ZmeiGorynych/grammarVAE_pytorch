@@ -24,21 +24,23 @@ from basic_pytorch.gpu_utils import FloatTensor, to_gpu
 dash_name = 'test'
 visdom = Dashboard(dash_name)
 model, fitter = train_vae(molecules=True,
-                          BATCH_SIZE=300,
+                          BATCH_SIZE=250,
                           drop_rate=0.5,
                           sample_z=False,
-                          save_file='dummy.h5',#''dropout_no_sampling_rnn_encoder_.h5',
+                          save_file='dropout_no_sampling_rnn_encoder.h5',
                           rnn_encoder=True,
-                          lr=1e-3,
-                          plot_prefix='RNN enc high LR',
-                          dashboard = dash_name)
+                          lr=1e-4,
+                          plot_prefix='RNN enc lr 1e-4',
+                          dashboard=dash_name,
+                          preload_weights=False)
 # this is a wrapper for encoding/decodng
 grammar_model = ZincGrammarModel(model=model)
 validity_model = to_gpu(DenseHead(model.encoder, body_out_dim=settings['z_size']))
 count = 1
 sm_metrics = [0,0,0]
-f_valid = open("valid.smi", "a+")
-f_invalid = open("invalid.smi",'a+')
+f_valid = open("valid_1.smi", "a+")
+f_invalid = open("invalid_1.smi",'a+')
+# h5invalid = HDF5Dataset('invalid_smiles.h5', max_len = ...)
 while True:
     # this does one train step
     count +=1
@@ -57,9 +59,13 @@ while True:
         # one_hot = grammar_model.smiles_to_one_hot(mock_smiles)
         # one_hot = Variable(FloatTensor(one_hot))
         # x = validity_model(one_hot)
-        for s in valid:
-            f_valid.write(s+"\n")
+        #invalid_one_hot = grammar_model.smiles_to_one_hot(invalid)
+        #h5invalid.circular_overwrite('one_hot',invalid_one_hot, max_len = ..)
+        #h5invalid.circular_overwrite('smiles',invalid, max_len = ..)
 
-        for s in invalid:
-            f_invalid.write(s+"\n")
+        # for s in valid:
+        #     f_valid.write(s+"\n")
+        #
+        # for s in invalid:
+        #     f_invalid.write(s+"\n")
 
