@@ -17,11 +17,8 @@ Instructions on how to install/run:
 Requirements are 
 
 * requirements.txt 
-
 * pytorch 0.4 and visdom, both should be installed from source.
-
 * rdkit: `conda install -c rdkit rdkit`
-
 * `github/ZmeiGorynych/basic_pytorch`: just download the source and add to your path
 
 
@@ -32,7 +29,17 @@ Set the `molecules` boolean at its start to decide whether to generate the datas
 * `back_and_forth.py` tries to go the full cycle from a SMILES string to a latent space vector and back. As it's using poorly trained weights for now, expect the generated strings to be garbage :)
 * `notebooks/PrettyPic.ipynb` draws a pretty picture of a molecule from a SMILES string
 
+Changes made in comparison to mkusner/grammarVAE:
+* Port to Python 3
+* Port the neural model from Keras to PyTorch
+* Refactor code to eliminate repetition
+* Add extra masking to guarantee molecules are complete by max_len
+* Port Bayesian optimization to use GPyOpt
+
+Extensions implemented so far:
+* Add dropout to all layers of the model
+* Provide alternative encoder using RNN + attention
+
 Major things left to do:
 * Tune the training of the model
 * Make the model work on strings too (currently just grammars)
-* Port Bayesian optimization to use gpy and gpyopt

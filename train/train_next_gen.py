@@ -24,7 +24,7 @@ from basic_pytorch.gpu_utils import FloatTensor, to_gpu
 dash_name = 'test'
 visdom = Dashboard(dash_name)
 model, fitter = train_vae(molecules=True,
-                          BATCH_SIZE=250,
+                          BATCH_SIZE=50,
                           drop_rate=0.5,
                           sample_z=False,
                           save_file='dropout_no_sampling_rnn_encoder.h5',
@@ -47,7 +47,7 @@ while True:
     next(fitter)
     if True: #count % 10 == 0:
         mock_latent_points = np.random.normal(size=(100,settings['z_size']))
-        mock_smiles = grammar_model.decode(mock_latent_points)
+        mock_smiles = grammar_model.decode(mock_latent_points, validate=True, max_attempts=3)
         mock_smiles = [s for s in mock_smiles if s != '']
         metrics, (valid,invalid) = fraction_valid(mock_smiles) # frac_valid, avg_len, max_len
         sm_metrics = [0.9*sm + 0.1*m for sm,m in zip(sm_metrics,metrics)]
