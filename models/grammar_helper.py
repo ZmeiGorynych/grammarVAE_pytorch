@@ -100,33 +100,55 @@ class GrammarHelper:
         self.start_index = self.GCFG.productions()[0].lhs()
 
         # collect all lhs symbols, and the unique set of them
-        all_lhs = [a.lhs().symbol() for a in self.GCFG.productions()]
+        all_lhs = [a.lhs() for a in self.GCFG.productions()]
         self.lhs_list = []
         for a in all_lhs:
             if a not in self.lhs_list:
                 self.lhs_list.append(a)
 
         self.D = len(self.GCFG.productions())
+        self.term_dist = {}
 
         # this map tells us the rhs symbol indices for each production rule
         self.rhs_map = [None]*self.D
         count = 0
-        for a in self.GCFG.productions():
+        for count,a in enumerate(self.GCFG.productions()):
             self.rhs_map[count] = []
             for b in a.rhs():
                 if not isinstance(b,six.string_types):
-                    s = b.symbol()
+                    s = b#.symbol()
                     self.rhs_map[count].extend(list(np.where(np.array(self.lhs_list) == s)[0]))
-            count = count + 1
+
 
         self.masks = np.zeros((len(self.lhs_list),self.D))
-        count = 0
 
+        #count = 0
         # this tells us for each lhs symbol which productions rules should be masked
-        for sym in self.lhs_list:
+        for count,sym in enumerate(self.lhs_list):
             is_in = np.array([a == sym for a in all_lhs], dtype=int).reshape(1,-1)
             self.masks[count] = is_in
-            count = count + 1
+            #count = count + 1
+
+        # go over all production rules, collect all nonterminal symbols
+        for p in self.GCFG.productions():
+            self.term_dist[p.lhs()] = float('inf')
+
+        # iteratively determine minimum distance to terminal symbol
+        while any([val == float('inf') for key,val in self.term_dist.items()]):
+            for p in self.GCFG.productions():
+                this_dist = sum([self.terminal_dist(x) for x in p.rhs()]) + 1
+                self.term_dist[p.lhs()] = min(self.term_dist[p.lhs()], this_dist)
+
+        # determine all transition rules that decrease the total terminal distance
+        self.terminal_mask = np.zeros((1,self.D))
+        self.max_term_dist_increase = 0
+        for ip, p in enumerate(self.GCFG.productions()):
+            old_dist = self.terminal_dist(p.lhs())
+            new_dist = sum([self.terminal_dist(s) for s in p.rhs()])
+            if old_dist > new_dist:
+                self.terminal_mask[0,ip] = 1
+            if nltk.Nonterminal('class') not in p.rhs():
+                self.max_term_dist_increase = max(self.max_term_dist_increase, new_dist-old_dist)
 
         # this tells us the indices where the masks are equal to 1
         index_array = []
@@ -148,6 +170,17 @@ class GrammarHelper:
             self.masks[:,29] = 0
             self.masks[:,31] = 0
 
+    def terminal_dist(self,x):
+        if type(x)==nltk.grammar.Nonterminal:
+            if x._symbol == 'class':
+                #a nonterminal symbol that never gets used - why was it even included
+                return float('inf')
+            elif x._symbol == 'None':
+                return 0
+            else:
+                return self.term_dist[x]
+        else:
+            return 0
 
 grammar_zinc = GrammarHelper(grammar_string_zinc, molecule_tweak=True)
 grammar_eq = GrammarHelper(grammar_string_eq, molecule_tweak=False)

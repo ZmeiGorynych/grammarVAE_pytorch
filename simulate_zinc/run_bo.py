@@ -9,6 +9,7 @@ def decode_from_latent_space(latent_points, grammar_model):
 
     decode_attempts = 500
     decoded_molecules = []
+
     for i in range(decode_attempts):
         current_decoded_molecules = grammar_model.decode(latent_points)
         current_decoded_molecules = [ x if x != '' else 'Sequence too long' for x in current_decoded_molecules ]
@@ -35,7 +36,8 @@ def decode_from_latent_space(latent_points, grammar_model):
     for i in range(latent_points.shape[ 0 ]):
 
         aux = collections.Counter(rdkit_molecules[ ~np.equal(rdkit_molecules[ :, i ], None) , i ])
-        if len(aux) > 0:
+        if len(aux) > 0: # grab the first valid one? Why not integrate max_attempts into decode instead?
+            # all very boring, can replace in a jiffy!
             smile = aux.items()[ np.argmax(aux.values()) ][ 0 ]
         else:
             smile = None
@@ -92,8 +94,6 @@ X_test = X[ permutation, : ][ np.int(np.round(0.9 * n)) :, : ]
 y_train = y[ permutation ][ 0 : np.int(np.round(0.9 * n)) ]
 y_test = y[ permutation ][ np.int(np.round(0.9 * n)) : ]
 
-import os.path
-
 np.random.seed(random_seed)
 
 iteration = 0
@@ -121,15 +121,8 @@ while iteration < 5:
 
     # We load the decoder to obtain the molecules
 
-    from rdkit.Chem import MolFromSmiles, MolToSmiles
-    from rdkit.Chem import Draw
-    import image
-    import copy
-    import time
-
     import sys
     sys.path.insert(0, '../../../')
-    import molecule_vae
     grammar_weights = '../../../pretrained/zinc_vae_grammar_L56_E100_val.hdf5'
     grammar_model = grammar_model.ZincGrammarModel(grammar_weights)
 
@@ -140,7 +133,7 @@ while iteration < 5:
     valid_smiles_final = decode_from_latent_space(next_inputs, grammar_model)
 
     from rdkit.Chem import Descriptors
-    from rdkit.Chem import MolFromSmiles, MolToSmiles
+    from rdkit.Chem import MolFromSmiles
 
     new_features = next_inputs
 
@@ -155,7 +148,7 @@ while iteration < 5:
 
     targets = SA_scores_normalized + logP_values_normalized + cycle_scores_normalized
 
-    import sascorer
+    from data_utils import sascorer
     import networkx as nx
     from rdkit.Chem import rdmolops
 
@@ -163,7 +156,7 @@ while iteration < 5:
     for i in range(len(valid_smiles_final)):
         if valid_smiles_final[ i ] is not None:
             current_log_P_value = Descriptors.MolLogP(MolFromSmiles(valid_smiles_final[ i ]))
-            current_SA_score = -sascorer.calculateScore(MolFromSmiles(valid_smiles_final[ i ]))
+            current_SA_score = -sascorer.calculateScore(MolFromSmiles(valid_smiles_final[ i]))
             cycle_list = nx.cycle_basis(nx.Graph(rdmolops.GetAdjacencyMatrix(MolFromSmiles(valid_smiles_final[ i ]))))
             if len(cycle_list) == 0:
                 cycle_length = 0

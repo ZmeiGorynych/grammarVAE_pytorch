@@ -35,14 +35,16 @@ class GrammarModel(object):
             self._lhs_map[lhs] = ix
         if model is not None:
             self.vae = model
-        elif weights_file is not None:
+        else:
             # assume model hidden_n and encoder_kernel_size are always the same
             # TODO: should make better use of model_settings here!
             self.vae = model_type(z_size=latent_rep_size,
                              feature_len=len(self._productions),
                              max_seq_length=self.MAX_LEN,
                              rnn_encoder=rnn_encoder)
-            self.vae.load(weights_file)
+            if weights_file is not None:
+                self.vae.load(weights_file)
+        self.vae.eval()
 
     def smiles_to_one_hot(self,smiles):
         """ Encode a list of smiles strings into the latent space """
@@ -73,14 +75,30 @@ class GrammarModel(object):
         # Create a stack for each input in the batch
         S = np.empty((unmasked.shape[0],), dtype=object)
         for ix in range(S.shape[0]):
-            S[ix] = [str(self.grammar.start_index)]
+            S[ix] = [self.grammar.start_index]
 
         # Loop over time axis, sampling values and updating masks
+        tdist_reduction = [False for _ in range(len(S))]
         for t in range(unmasked.shape[1]):
+            # print('S:', S,[self.grammar.terminal_dist(sym) for sym in S[0]],
+            #       sum([self.grammar.terminal_dist(sym) for sym in S[0]]),
+            #       self.MAX_LEN - t,self.MAX_LEN - t - self.grammar.max_term_dist_increase - 1 )
+            term_distance = [sum([self.grammar.terminal_dist(sym) for sym in s]) for s in S]
             next_nonterminal = [self._lhs_map[pop_or_nothing(a)] for a in S]
             mask = self.grammar.masks[next_nonterminal]
+
+            for ix, s in enumerate(S):
+                # if the number of total steps left to all terminals is at least the length of the sequence
+                #print('s:',s,[self.grammar.terminal_dist(sym) for sym in s],self.MAX_LEN - t - self.grammar.max_term_dist_increase - 3)
+                if term_distance[ix] >= self.MAX_LEN - t - self.grammar.max_term_dist_increase - 1:
+                    tdist_reduction[ix] = True # go into terminal distance reduction mode for that molecule
+                if tdist_reduction[ix]:
+                    mask[ix] *= self.grammar.terminal_mask[0]
+                    #print('****')
             masked_output = np.exp(unmasked[:,t,:])*mask + eps
             sampled_output = np.argmax(np.random.gumbel(size=masked_output.shape) + np.log(masked_output), axis=-1)
+            this_prod = self.grammar.GCFG.productions()[sampled_output[0]]
+            #print(this_prod, self.grammar.terminal_dist(this_prod.lhs()),[self.grammar.terminal_dist(x) for x in this_prod.rhs()], tdist_reduction[ix])
             X_hat[np.arange(unmasked.shape[0]),t,sampled_output] = 1.0
 
             # Identify non-terminals in RHS of selected production, and
@@ -96,14 +114,28 @@ class GrammarModel(object):
             #rhs = [type(i) for i in sampled_output if (str(i) != 'None')]
 
             for ix, this_rhs in enumerate(rhs):
-                S[ix].extend([str(x) for x in this_rhs[::-1]])
+                S[ix].extend([x for x in this_rhs[::-1]])
         return X_hat # , ln_p
 
-    def decode(self, z):
+    # TODO: keep trying to decode for max_attempts, until rdkit likes it!
+    def decode(self, z, validate = False, max_attempts = 10):
         """ Sample from the grammar decoder """
         assert z.ndim == 2
         unmasked = self.vae.decoder.decode(z)
-        return self.decode_from_onehot(unmasked)
+        if not validate:
+            return self.decode_from_onehot(unmasked)
+        else:
+            import rdkit
+            out = []
+            for x in unmasked:
+                for _ in range(max_attempts):
+                    smiles = self.decode_from_onehot(np.array([x]))[0]
+                    result = rdkit.Chem.MolFromSmiles(smiles)
+                    if result is not None:
+                        break
+                out.append(smiles)
+            return out
+
         
     def decode_from_onehot(self, unmasked):
         X_hat = self._sample_using_masks(unmasked)
@@ -111,7 +143,11 @@ class GrammarModel(object):
         prod_seq = [[self._productions[X_hat[index,t].argmax()]
                      for t in range(X_hat.shape[1])]
                     for index in range(X_hat.shape[0])]
-        return [prods_to_eq(prods) for prods in prod_seq]
+        out = []
+        for ip, prods in enumerate(prod_seq):
+            out.append(prods_to_eq(prods))
+
+        return out
 
 
 
@@ -185,14 +221,16 @@ class ZincGrammarModel(GrammarModel):
 
 
 def pop_or_nothing(S):
-    try: return S.pop()
-    except: return 'Nothing'
+    try:
+        return S.pop()
+    except:
+        return nltk.grammar.Nonterminal('Nothing')
 
 
 def prods_to_eq(prods):
     seq = [prods[0].lhs()]
     for prod in prods:
-        if str(prod.lhs()) == 'Nothing':
+        if str(prod.lhs()) == nltk.grammar.Nonterminal('Nothing'):
             break
         for ix, s in enumerate(seq):
             if s == prod.lhs():
