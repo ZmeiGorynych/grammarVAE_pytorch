@@ -56,10 +56,10 @@ while True:
                    X=np.array([count]),
                    Y=np.array([sm_metrics]),
                    opts={'legend': ['num_valid','avg_len','max_len']})
-        # one_hot = grammar_model.smiles_to_one_hot(mock_smiles)
+        # one_hot = grammar_model.string_to_one_hot(mock_smiles)
         # one_hot = Variable(FloatTensor(one_hot))
         # x = validity_model(one_hot)
-        #invalid_one_hot = grammar_model.smiles_to_one_hot(invalid)
+        #invalid_one_hot = grammar_model.string_to_one_hot(invalid)
         #h5invalid.circular_overwrite('one_hot',invalid_one_hot, max_len = ..)
         #h5invalid.circular_overwrite('smiles',invalid, max_len = ..)
 

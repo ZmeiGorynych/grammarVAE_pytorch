@@ -1,49 +1,16 @@
-from rdkit.Chem import Descriptors
-from rdkit.Chem import rdmolops
 from rdkit.Chem import MolFromSmiles, MolToSmiles
-from data_utils import sascorer
-import numpy as np  
+import numpy as np
 import os, inspect
-import networkx as nx
 import h5py
 import sys
+
+from grammarVAE_pytorch.bayesian_opt.get_score_components import get_score_components
+
 my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 sys.path.insert(0, my_location + '/../')
 from grammarVAE_pytorch.models import grammar_ed_models as grammar_model
 
-def get_scores(smiles):
-    this_mol = MolFromSmiles(smiles)
-    logP = Descriptors.MolLogP(this_mol)
-    SA_score = -sascorer.calculateScore(this_mol)
-    cycle_list = nx.cycle_basis(nx.Graph(rdmolops.GetAdjacencyMatrix(this_mol)))
-    if len(cycle_list) == 0:
-        cycle_length = 0
-    else:
-        cycle_length = max([len(j) for j in cycle_list])
-    if cycle_length <= 6:
-        cycle_length = 0
-    else:
-        cycle_length = cycle_length - 6
-    cycle_score = -cycle_length
-    return logP, SA_score, cycle_score
-
 if __name__ == '__main__':
-    # We load the auto-encoder
-    # my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-    # grammar_weights = my_location + '/pretrained/my_molecules.mdl'
-    # grammar_model = grammar_model.ZincGrammarModel(grammar_weights)
-    # z = grammar_model.encode(['c1nccc2n1ccc2'])
-    # print(type(z))
-    # new_smile = grammar_model.decode(z)
-    # print(new_smile)
-    # mock_latent_points = np.random.normal(size=latent_points.shape)
-    # mock_smiles = grammar_model.decode(mock_latent_points)
-    # mock_mols = []
-
-    # for m in mock_smiles:
-    #     mock_mols.append(MolFromSmiles(m))
-    # We load the smiles data
-
     smiles_fname = my_location + '/../data/250k_rndm_zinc_drugs_clean.smi'
     onehot_fname = my_location + '/../data/zinc_grammar_dataset.h5'
     data_dir = '../data/'
@@ -73,7 +40,7 @@ if __name__ == '__main__':
             one_hot = h5f['data'][block_start:block_end]
             latent_points.append(grammar_model.vae.encoder.encode(one_hot))
             smiles_chunk = smiles_rdkit[block_start:block_end]
-            raw_scores += [get_scores(s) for s in smiles_chunk]
+            raw_scores += [get_score_components(s) for s in smiles_chunk]
 
     latent_points = np.concatenate(latent_points)
     raw_scores = np.array(raw_scores)

@@ -10,16 +10,15 @@ except:
     my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     sys.path.append('../..')
 from grammarVAE_pytorch.train.main_train_vae import train_vae
+from grammarVAE_pytorch.models.model_settings import get_settings
 
-molecules = False
+molecules = True
+grammar = True
+settings = get_settings(molecules,grammar)
 
-if molecules:
-    save_file = 'grammar_zinc_baseline.h5'
-else:
-    save_file = 'grammar_eq_baseline.h5'
-
-
+save_file =settings['filename_stub'] + 'baseline.h5'
 model, fitter = train_vae(molecules=molecules,
+                          grammar=grammar,
                           BATCH_SIZE=50,
                           save_file=save_file,
                           sample_z=True,

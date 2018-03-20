@@ -4,11 +4,11 @@ import torch
 from torch import nn as nn, FloatTensor, IntTensor
 from torch.autograd import Variable
 from torch.nn import functional as F
-molecules = True
-if molecules:
-    from grammarVAE_pytorch.models.grammar_ed_models import ZincGrammarModel as GrammarModel
-else:
-    from grammarVAE_pytorch.models.grammar_ed_models import EquationGrammarModel as GrammarModel
+# molecules = True
+# if molecules:
+#     from grammarVAE_pytorch.models.grammar_ed_models import ZincGrammarModel as GrammarModel
+# else:
+#     from grammarVAE_pytorch.models.grammar_ed_models import EquationGrammarModel as GrammarModel
 
 from basic_pytorch.gpu_utils import to_gpu
 
@@ -22,8 +22,11 @@ class VAELoss(nn.Module):
         super(VAELoss, self).__init__()
         self.sample_z = sample_z
         self.bce_loss = nn.BCELoss(size_average = False)
-        self.masks = FloatTensor(grammar.masks)
-        self.ind_to_lhs_ind = IntTensor(grammar.ind_to_lhs_ind)
+        if grammar is not None:
+            self.masks = FloatTensor(grammar.masks)
+            self.ind_to_lhs_ind = IntTensor(grammar.ind_to_lhs_ind)
+        else:
+            self.masks = None
 
     def forward(self, model_out, target_x):
         """gives the batch normalized Variational Error."""
@@ -43,7 +46,6 @@ class VAELoss(nn.Module):
         model_out_x = F.softmax(model_out_x, dim=2)
         #BCE = -(nn.LogSoftmax(dim=2)(model_out_x)*target_x).sum()/(seq_len * batch_size)
         BCE = self.bce_loss(model_out_x, target_x) / (seq_len * batch_size)
-        #FV, avg_len, max_len = fraction_valid(model_out_x.data.cpu().numpy())
         # see Appendix B from VAE paper:
         # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
         # https://arxiv.org/abs/1312.6114
@@ -77,10 +79,10 @@ class VAELoss(nn.Module):
 
 def apply_masks(x_true, x_pred, masks, ind_to_lhs_ind):
     '''
-    Apply grammar transition rules to a softmax matrix
+    Apply grammar transition rules to a softmax matrix, given a one-hot target
     :param x_true: Variable of actual transitions, one-hot encoded, batch x sequence x element
     :param x_pred: Variable of logits, same shape as x_true
-    :return: x_pred zeroed out and rescaled
+    :return: x_pred with masked logits shifted down by at least -100 below original min()
     '''
 
     x_size = x_true.size()

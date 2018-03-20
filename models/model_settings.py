@@ -1,40 +1,82 @@
 import os, inspect
+from grammarVAE_pytorch.models.grammar_helper import grammar_eq, grammar_zinc
+# in the desired end state, this file will contain every single difference between the different models
+
 root_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 root_location = root_location + '/../'
-from grammarVAE_pytorch.models.grammar_helper import grammar_eq, grammar_zinc
 
-# These are settings that are meant to be pretty much constant
-settings_zinc = {'grammar':grammar_zinc,
-                 'data_path':root_location + 'data/zinc_grammar_dataset.h5',
-                 'z_size': 56,
-                  'hidden_n': 200,
-                  'feature_len': len(grammar_zinc.GCFG.productions()),
-                  'max_seq_length': 277,
-                  'encoder_kernel_sizes': (2, 3, 4),
-                  'EPOCHS': 100,
-                  'BATCH_SIZE': 300
-                  }
+eq_charlist = ['x', '+', '(', ')', '1', '2', '3', '*', '/', 's', 'i', 'n', 'e', 'p', ' ']
+zinc_charlist =  ['C', '(', ')', 'c', '1', '2', 'o', '=', 'O', 'N', '3', 'F', '[',
+                             '@', 'H', ']', 'n', '-', '#', 'S', 'l', '+', 's', 'B', 'r', '/',
+                             '4', '\\', '5', '6', '7', 'I', 'P', '8', ' ']
 
-settings_eq = {'grammar':grammar_eq,
-               'data_path': root_location + 'data/eq2_grammar_dataset.h5',
-                'z_size': 25,
-              'hidden_n': 200,
-              'feature_len': len(grammar_eq.GCFG.productions()),
-              'max_seq_length': 15,
-              'encoder_kernel_sizes': (2, 3, 4),
-               'EPOCHS': 50,# from mkusner/grammarVAE
-               'BATCH_SIZE':600# from mkusner/grammarVAE
-                }
+def get_settings(molecules = True, grammar = True):
+    if molecules:
+        if grammar:
+            settings = {'source_data': root_location + 'data/250k_rndm_zinc_drugs_clean.smi',
+                        'data_path':root_location + 'data/zinc_grammar_dataset.h5',
+                        'filename_stub': 'gramar_zinc_',
+                        'grammar': grammar_zinc,
+                        'z_size': 56,
+                        'hidden_n': 200,
+                        'feature_len': len(grammar_zinc.GCFG.productions()),
+                        'max_seq_length': 277,
+                        'encoder_kernel_sizes': (2, 3, 4),
+                        'EPOCHS': 100,
+                        'BATCH_SIZE': 300
+                        }
+        else:
+            from grammarVAE_pytorch.models.character_ed_models import ZincCharacterModel as ThisModel
+            settings = {'source_data': root_location + 'data/250k_rndm_zinc_drugs_clean.smi',
+                        'data_path': root_location + 'data/zinc_str_dataset.h5',
+                        'filename_stub': 'char_zinc_',
+                        'charlist': zinc_charlist,
+                        'grammar': None,
+                        'z_size': 56,
+                        'hidden_n': 200,
+                        'feature_len': len(zinc_charlist),
+                        'max_seq_length': 120,
+                        'encoder_kernel_sizes': (2, 3, 4),
+                        'EPOCHS': 100,
+                        'BATCH_SIZE': 500
+                        }
+    else:
+        if grammar:
+            settings = {'source_data': root_location + 'data/equation2_15_dataset.txt',
+                        'data_path': root_location + 'data/eq2_grammar_dataset.h5',
+                        'filename_stub': 'grammar_eq_',
+                        'grammar': grammar_eq,
+                        'z_size': 25,
+                        'hidden_n': 200,
+                        'feature_len': len(grammar_eq.GCFG.productions()),
+                        'max_seq_length': 15,
+                        'encoder_kernel_sizes': (2, 3, 4),
+                        'EPOCHS': 50,
+                        'BATCH_SIZE':600
+                        }
+        else:
+            settings = {'source_data': root_location + 'data/equation2_15_dataset.txt',
+                        'data_path': root_location + 'data/eq2_str_dataset.h5',
+                        'filename_stub': 'char_eq_',
+                        'charlist': eq_charlist,
+                        'grammar': None,
+                        'z_size': 25,
+                        'hidden_n': 200,
+                        'feature_len': len(eq_charlist),
+                        'max_seq_length': 31,# max([len(l) for l in L]) L loaded from textfile
+                        'encoder_kernel_sizes': (2, 3, 4),
+                        'EPOCHS': 50,
+                        'BATCH_SIZE': 600
+                        }
 
-def get_model_args(molecules,
+    return settings
+
+def get_model_args(molecules, grammar,
                    drop_rate=0.5,
                    sample_z = False,
                    rnn_encoder =True):
-    if molecules:
-        settings = settings_zinc
-    else:
-        settings = settings_eq
 
+    settings = get_settings(molecules,grammar)
     model_args = {'z_size': settings['z_size'],
                   'hidden_n':  settings['hidden_n'],
                   'feature_len': settings['feature_len'],

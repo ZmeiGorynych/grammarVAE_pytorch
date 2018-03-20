@@ -6,7 +6,6 @@ import numpy as np
 
 # We load the auto-encoder
 my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-grammar_weights = my_location + '/pretrained/my_molecules.mdl'
 grammar_model = grammar_model.ZincGrammarModel()
 z = grammar_model.encode(['c1nccc2n1ccc2'])
 for _ in range(100):

@@ -3,7 +3,7 @@ import gzip
 import h5py
 import os, inspect,sys
 import numpy as np
-from data_utils.generate_latent_features_and_targets import get_scores
+from bayesian_opt.get_score_components import get_score_components
 from grammarVAE_pytorch.models import grammar_ed_models as grammar_model
 import GPy
 import GPyOpt
@@ -31,7 +31,7 @@ grammar_model = grammar_model.ZincGrammarModel()
 
 def latent_to_score(latent):
     smiles = grammar_model.decode(latent, validate = True, max_attempts=5)
-    pre_scores = np.array([get_scores(s) for s in smiles])
+    pre_scores = np.array([get_score_components(s) for s in smiles])
     return normalized_score(pre_scores)
 
 

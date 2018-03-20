@@ -46,7 +46,7 @@ class GrammarModel(object):
                 self.vae.load(weights_file)
         self.vae.eval()
 
-    def smiles_to_one_hot(self,smiles):
+    def string_to_one_hot(self, smiles):
         """ Encode a list of smiles strings into the latent space """
         assert type(smiles) == list
         tokens = map(self._tokenize, smiles)
@@ -62,7 +62,7 @@ class GrammarModel(object):
         return one_hot
 
     def encode(self, smiles):
-        one_hot = self.smiles_to_one_hot(smiles)
+        one_hot = self.string_to_one_hot(smiles)
         z_mean = self.vae.encoder.encode(one_hot)
         return z_mean
 
@@ -198,8 +198,11 @@ def get_zinc_tokenizer(cfg):
 
     return tokenize
 
+
 # TODO: get all the zinc vs eq bits from model_settings!
 zinc_tokenizer = get_zinc_tokenizer(grammar_helper.grammar_zinc.GCFG)
+
+
 class ZincGrammarModel(GrammarModel):
     def __init__(self,
                  weights_file=None,

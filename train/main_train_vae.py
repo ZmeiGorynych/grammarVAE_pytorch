@@ -8,9 +8,10 @@ from grammarVAE_pytorch.models.model_loss import VAELoss
 from basic_pytorch.fit import fit
 from basic_pytorch.data_utils.data_sources import DatasetFromHDF5, train_valid_loaders, DuplicateIter
 from basic_pytorch.gpu_utils import use_gpu
-from grammarVAE_pytorch.models.model_settings import settings_eq, settings_zinc, get_model_args
+from grammarVAE_pytorch.models.model_settings import get_settings, get_model_args
 
 def train_vae(molecules = True,
+              grammar = True,
               EPOCHS = None,
               BATCH_SIZE = None,
               lr = 2e-4,
@@ -26,17 +27,19 @@ def train_vae(molecules = True,
     root_location = root_location + '/../'
     save_path = root_location + 'pretrained/' + save_file
 
-    if molecules:
-        settings = settings_zinc
-    else:
-        settings = settings_eq
+    settings = get_settings(molecules=molecules,grammar=grammar)
 
     if EPOCHS is not None:
         settings['EPOCHS'] = EPOCHS
     if BATCH_SIZE is not None:
         settings['BATCH_SIZE'] = BATCH_SIZE
 
-    model_args = get_model_args(molecules, drop_rate, sample_z, rnn_encoder)
+    model_args = get_model_args(molecules,
+                                grammar,
+                                drop_rate=drop_rate,
+                                sample_z = sample_z,
+                                rnn_encoder=rnn_encoder)
+
     model = GrammarVariationalAutoEncoder(**model_args)
     if preload_weights:
         try:
