@@ -21,7 +21,7 @@ class VAELoss(nn.Module):
         '''
         super(VAELoss, self).__init__()
         self.sample_z = sample_z
-        self.bce_loss = nn.BCELoss(size_average = False)
+        self.bce_loss = nn.BCELoss(size_average = True) #following mkusner/grammarVAE, earlier was False)
         if grammar is not None:
             self.masks = FloatTensor(grammar.masks)
             self.ind_to_lhs_ind = IntTensor(grammar.ind_to_lhs_ind)
@@ -40,24 +40,25 @@ class VAELoss(nn.Module):
                                   self.masks,
                                   self.ind_to_lhs_ind
                                   )
-        # added normalization by seq_len as KL term too weak otherwise
-        # if torch.max(model_out_x) > 1.0 or torch.min(model_out_x) <0.0:
-        #     pass
         model_out_x = F.softmax(model_out_x, dim=2)
-        #BCE = -(nn.LogSoftmax(dim=2)(model_out_x)*target_x).sum()/(seq_len * batch_size)
-        BCE = self.bce_loss(model_out_x, target_x) / (seq_len * batch_size)
-        # see Appendix B from VAE paper:
-        # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
-        # https://arxiv.org/abs/1312.6114
-        # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
+        # Was
+        #BCE = self.bce_loss(model_out_x, target_x) / (seq_len * batch_size)
+        # now like this, following mkusner/grammarVAE
+        BCE = seq_len * self.bce_loss(model_out_x, target_x)
+        # this normalizer is for when we're not sampling so only have mus, not sigmas
         avg_mu = torch.sum(mu, dim=0) / batch_size
         var = torch.mm(mu.t(), mu) / batch_size
         var_err = var - Variable(to_gpu(torch.eye(z_size)))
         var_err = F.tanh(var_err)*var_err # so it's ~ x^2 asymptotically, not x^4
         mom_err = (avg_mu * avg_mu).sum() / z_size + var_err.sum() / (z_size * z_size)
         if self.sample_z:
-            KLD_element = mu.pow(2).add_(log_var.exp()).mul_(-1).add_(1).add_(log_var)
-            KLD = torch.sum(KLD_element).mul_(-0.5)/batch_size
+            # see Appendix B from VAE paper:
+            # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
+            # https://arxiv.org/abs/1312.6114
+            # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
+            KLD_element = (1 + log_var - mu*mu - log_var.exp())
+            #KLD_element = mu.pow(2).add_(log_var.exp()).mul_(-1).add_(1).add_(log_var)
+            KLD = torch.mean(KLD_element).mul_(-0.5)
             KLD_ = KLD.data[0]
             my_loss = BCE + KLD
         else:

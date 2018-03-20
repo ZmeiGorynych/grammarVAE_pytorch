@@ -19,11 +19,12 @@ settings = get_settings(molecules,grammar)
 save_file =settings['filename_stub'] + 'baseline.h5'
 model, fitter = train_vae(molecules=molecules,
                           grammar=grammar,
-                          BATCH_SIZE=50,
+                          BATCH_SIZE=200, # a p2.xlarge won't bear any bigger batches
                           save_file=save_file,
                           sample_z=True,
                           rnn_encoder=False,
-                          lr=1e-3)
+                          lr=5e-4,
+                          plot_prefix='baseline lr 5e-4(1e-4)')
 
 while True:
     next(fitter)

@@ -14,7 +14,7 @@ from basic_pytorch.visdom_helper.visdom_helper import Dashboard
 from grammarVAE_pytorch.train.main_train_vae import train_vae
 from grammarVAE_pytorch.models.model_settings import settings_zinc as settings
 from grammarVAE_pytorch.models.grammar_ed_models import ZincGrammarModel, fraction_valid
-from grammarVAE_pytorch.models.model_grammar_pytorch import DenseHead
+from basic_pytorch.models.simple_models import DenseHead
 import numpy as np
 from torch.autograd import Variable
 import torch.nn as nn

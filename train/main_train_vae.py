@@ -56,8 +56,12 @@ def train_vae(molecules = True,
 
     train_gen = DuplicateIter(train_loader)
     valid_gen = DuplicateIter(valid_loader)
-
-    scheduler = lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.9)
+    scheduler = lr_scheduler.ReduceLROnPlateau(optimizer,
+                                               factor=0.2,
+                                               patience=3,
+                                               min_lr=0.0001,
+                                               eps=1e-08)
+    #scheduler = lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.9)
     loss_obj = VAELoss(settings['grammar'], sample_z)
 
     fitter = fit(train_gen=train_gen,

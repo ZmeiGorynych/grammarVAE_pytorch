@@ -4,58 +4,43 @@ import torch.nn as nn
 import torch.nn.functional as F
 from basic_pytorch.gpu_utils import FloatTensor, to_gpu
 from basic_pytorch.models.rnn_models import SimpleRNNDecoder,SimpleRNNAttentionEncoder
-import math
 
-class DenseHead(nn.Module):
-    def __init__(self, body,
-                 body_out_dim=None,
-                 out_dim = 1,
-                 drop_rate =0.0,
-                 activation=nn.Sigmoid()):
-        super(DenseHead, self).__init__()
-        self.body = body
-        self.dropout1 = nn.Dropout(drop_rate)
-        hidden_dim = int(math.floor(math.sqrt(body_out_dim))+1)
-        self.dense_1 = nn.Linear(body_out_dim, hidden_dim)
-        self.dropout2 = nn.Dropout(drop_rate)
-        self.dense_2 = nn.Linear(hidden_dim, out_dim)
-        self.activation = activation
-
-    def forward(self, x):
-        body_out = self.body(x)
-        if type(body_out) == tuple:
-            body_out = body_out[0]
-        return self.activation(self.dense_2(
-                        self.dropout2(self.dense_1(
-                            self.dropout1(body_out)))))
 
 class Encoder(nn.Module):
     def __init__(self,
                  max_seq_length=None,
-                 encoder_kernel_sizes=(2,3,4),
+                 params = {},
                  z_size=200,
                  feature_len=None,
                  drop_rate = 0.0):
         super(Encoder, self).__init__()
-        self.k = encoder_kernel_sizes
+        self.k = params['kernel_sizes']
+        self.ch = params['filters']
+        self.dense_size = params['dense_size']
         # NOTE: GVAE implementation does not use max-pooling. Original DCNN implementation uses max-k pooling.
-        conv_args = {'in_channels':feature_len, 'out_channels':feature_len,  'groups':feature_len}
+        #conv_args = {'in_channels':feature_len, 'out_channels':feature_len,  'groups':feature_len}
         self.dropout1 = nn.Dropout(drop_rate)
-        self.conv_1 = nn.Conv1d(kernel_size=self.k[0],**conv_args)
-        self.bn_1 = nn.BatchNorm1d(feature_len)
+        self.conv_1 = nn.Conv1d(kernel_size=self.k[0],
+                                in_channels=feature_len,
+                                out_channels=self.ch[0])
+        self.bn_1 = nn.BatchNorm1d(self.ch[0])
         self.dropout2 = nn.Dropout(drop_rate)
 
-        self.conv_2 = nn.Conv1d(kernel_size=self.k[1],**conv_args)
-        self.bn_2 = nn.BatchNorm1d(feature_len)
+        self.conv_2 = nn.Conv1d(kernel_size=self.k[1],
+                                in_channels=self.ch[0],
+                                out_channels=self.ch[1])
+        self.bn_2 = nn.BatchNorm1d(self.ch[1])
         self.dropout3 = nn.Dropout(drop_rate)
-        self.conv_3 = nn.Conv1d(kernel_size=self.k[2],**conv_args)
-        self.bn_3 = nn.BatchNorm1d(feature_len)
+        self.conv_3 = nn.Conv1d(kernel_size=self.k[2],
+                                in_channels=self.ch[1],
+                                out_channels=self.ch[2])
+        self.bn_3 = nn.BatchNorm1d(self.ch[2])
         self.dropout4 = nn.Dropout(drop_rate)
 
-        self.fc_0 = nn.Linear(feature_len * (max_seq_length + len(self.k) - sum(self.k)), z_size)
+        self.fc_0 = nn.Linear(self.ch[2] * (max_seq_length + len(self.k) - sum(self.k)), self.dense_size)
         self.dropout5 = nn.Dropout(drop_rate)
-        self.fc_mu = nn.Linear(z_size, z_size)
-        self.fc_var = nn.Linear(z_size, z_size)
+        self.fc_mu = nn.Linear(self.dense_size, z_size)
+        self.fc_var = nn.Linear(self.dense_size, z_size)
 
     def forward(self, x):
         batch_size = x.size()[0]
@@ -71,7 +56,7 @@ class Encoder(nn.Module):
         x = F.relu(self.bn_3(self.conv_3(x)))
         x = self.dropout4(x)
         x_ = x.view(batch_size, -1)
-        h = self.fc_0(x_)
+        h = F.relu(self.fc_0(x_))
         h = self.dropout5(h)
         return self.fc_mu(h), self.fc_var(h)
 
@@ -87,13 +72,16 @@ class Encoder(nn.Module):
 
 class GrammarVariationalAutoEncoder(nn.Module):
     def __init__(self, z_size=200,
-                 hidden_n=200,
+                 decoder_hidden_n=200,
                  feature_len=12,
                  max_seq_length=15,
-                 encoder_kernel_sizes=(2,3,4),
+                 cnn_encoder_params={'kernel_sizes': (2, 3, 4),
+                                               'filters': (2, 3, 4),
+                                               'dense_size': 100},
                  drop_rate = 0.0,
                  sample_z = True,
-                 rnn_encoder = False):
+                 rnn_encoder = False,
+                 rnn_encoder_hidden_n = 200):
         super(GrammarVariationalAutoEncoder, self).__init__()
         if rnn_encoder:
             sample_z = False
@@ -101,18 +89,18 @@ class GrammarVariationalAutoEncoder(nn.Module):
         if rnn_encoder:
             self.encoder = to_gpu(SimpleRNNAttentionEncoder(max_seq_length=max_seq_length,
                                                      z_size=z_size,
-                                                     hidden_n=hidden_n,
+                                                     hidden_n=rnn_encoder_hidden_n,
                                                      feature_len=feature_len,
                                                      drop_rate = drop_rate))
         else:
-            self.encoder = to_gpu(Encoder(encoder_kernel_sizes=encoder_kernel_sizes,
+            self.encoder = to_gpu(Encoder(params=cnn_encoder_params,
                                           max_seq_length=max_seq_length,
                                           z_size=z_size,
                                           feature_len=feature_len,
                                           drop_rate=drop_rate))
 
         self.decoder = to_gpu(SimpleRNNDecoder(z_size=z_size,
-                                               hidden_n=hidden_n,
+                                               hidden_n=decoder_hidden_n,
                                                feature_len=feature_len,
                                                max_seq_length=max_seq_length,
                                                drop_rate=drop_rate))

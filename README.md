@@ -24,14 +24,15 @@ How to run:
 * `data_utils/make_dataset.py` creates the hd5 datasets necessary to train the models. 
 Set the `molecules` boolean at its start to decide whether to generate the dataset for molecules or equations, 
 and the `grammar` boolean to decide whether to encode the grammar production sequences or character sequences.
-* `train/train_grammar_baseline.py` trains the model - again set the `molecules` boolean to choose the dataset (doesn't converge very well yet, need to tweak)
+* `train/train_baseline.py` trains the model - again set the `molecules` and `grammar` booleans to choose dataset and model (am in the process of tuning the calibration)
 * `back_and_forth.py` goes the full cycle from a SMILES string to a latent space vector and back. As it's using initialized but untrained weights for now, expect the generated strings to be garbage :)
 * `notebooks/PrettyPic.ipynb` draws a pretty picture of a molecule from a SMILES string
 
 Changes made in comparison to mkusner/grammarVAE:
 * Port to Python 3
 * Port the neural model from Keras to PyTorch
-* Refactor code to eliminate much repetition
+* Refactor code to eliminate some repetition
+    * Consolidate one-hot dataset creation code, turn on compression in hdf5 and process incrementally to save RAM
     * move (almost) all settings specific to a particular model to `models/model_settings.py`
 * Add extra masking to guarantee sequences are complete by max_len
 * Port Bayesian optimization to use GPyOpt (not really tested yet)

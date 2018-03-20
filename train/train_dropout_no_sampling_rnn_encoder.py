@@ -11,21 +11,22 @@ except:
     sys.path.append('../..')
 from grammarVAE_pytorch.train.main_train_vae import train_vae
 
-molecules = False
+from grammarVAE_pytorch.models.model_settings import get_settings
 
-if molecules:
-    save_file = 'grammar_zinc_dropout.h5'
-else:
-    save_file = 'grammar_eq_dropout.h5'
+molecules = True
+grammar = True
+settings = get_settings(molecules,grammar)
 
+save_file =settings['filename_stub'] + 'dr0.5_rnnenc_no_sampl.h5'
 
 model, fitter = train_vae(molecules=molecules,
-                          BATCH_SIZE=50,
-                          drop_rate=0.2,
+                          BATCH_SIZE=200,
+                          drop_rate=0.4,
                           save_file=save_file,
                           sample_z=False,
                           rnn_encoder=True,
-                          lr=1e-3)
+                          lr=5e-4,
+                          plot_prefix='rnn do=0.3 no_sam 5e-4')
 
 while True:
     next(fitter)

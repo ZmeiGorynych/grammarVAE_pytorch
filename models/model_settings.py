@@ -18,10 +18,13 @@ def get_settings(molecules = True, grammar = True):
                         'filename_stub': 'gramar_zinc_',
                         'grammar': grammar_zinc,
                         'z_size': 56,
-                        'hidden_n': 200,
+                        'decoder_hidden_n': 501,
                         'feature_len': len(grammar_zinc.GCFG.productions()),
                         'max_seq_length': 277,
-                        'encoder_kernel_sizes': (2, 3, 4),
+                        'cnn_encoder_params':{'kernel_sizes': (9, 9, 11),
+                                              'filters': (9, 9, 10),
+                                              'dense_size': 435},
+                        'rnn_encoder_hidden_n': 200,
                         'EPOCHS': 100,
                         'BATCH_SIZE': 300
                         }
@@ -32,11 +35,15 @@ def get_settings(molecules = True, grammar = True):
                         'filename_stub': 'char_zinc_',
                         'charlist': zinc_charlist,
                         'grammar': None,
-                        'z_size': 56,
-                        'hidden_n': 200,
+                        'z_size': 292,
+                        'decoder_hidden_n': 501,
                         'feature_len': len(zinc_charlist),
                         'max_seq_length': 120,
-                        'encoder_kernel_sizes': (2, 3, 4),
+                        'cnn_encoder_params':{'kernel_sizes': (9, 9, 11),
+                                              'filters': (9, 9, 10),
+                                              'dense_size': 435},
+
+                        'rnn_encoder_hidden_n': 200,
                         'EPOCHS': 100,
                         'BATCH_SIZE': 500
                         }
@@ -47,10 +54,13 @@ def get_settings(molecules = True, grammar = True):
                         'filename_stub': 'grammar_eq_',
                         'grammar': grammar_eq,
                         'z_size': 25,
-                        'hidden_n': 200,
+                        'decoder_hidden_n': 100,
                         'feature_len': len(grammar_eq.GCFG.productions()),
                         'max_seq_length': 15,
-                        'encoder_kernel_sizes': (2, 3, 4),
+                        'cnn_encoder_params':{'kernel_sizes': (2, 3, 4),
+                                              'filters': (2, 3, 4),
+                                              'dense_size': 100},
+                        'rnn_encoder_hidden_n': 100,
                         'EPOCHS': 50,
                         'BATCH_SIZE':600
                         }
@@ -61,10 +71,13 @@ def get_settings(molecules = True, grammar = True):
                         'charlist': eq_charlist,
                         'grammar': None,
                         'z_size': 25,
-                        'hidden_n': 200,
+                        'decoder_hidden_n': 100,
                         'feature_len': len(eq_charlist),
                         'max_seq_length': 31,# max([len(l) for l in L]) L loaded from textfile
-                        'encoder_kernel_sizes': (2, 3, 4),
+                        'cnn_encoder_params': {'kernel_sizes': (2, 3, 4),
+                                               'filters': (2, 3, 4),
+                                               'dense_size': 100},
+                        'rnn_encoder_hidden_n': 100,
                         'EPOCHS': 50,
                         'BATCH_SIZE': 600
                         }
@@ -78,12 +91,13 @@ def get_model_args(molecules, grammar,
 
     settings = get_settings(molecules,grammar)
     model_args = {'z_size': settings['z_size'],
-                  'hidden_n':  settings['hidden_n'],
+                  'decoder_hidden_n':  settings['decoder_hidden_n'],
                   'feature_len': settings['feature_len'],
                   'max_seq_length': settings['max_seq_length'],
-                  'encoder_kernel_sizes':  settings['encoder_kernel_sizes'],
+                  'cnn_encoder_params':  settings['cnn_encoder_params'],
                   'drop_rate': drop_rate,
                   'sample_z': sample_z,
-                  'rnn_encoder': rnn_encoder}
+                  'rnn_encoder': rnn_encoder,
+                  'rnn_encoder_hidden_n': settings['rnn_encoder_hidden_n']}
 
     return model_args
