@@ -57,8 +57,7 @@ class VAELoss(nn.Module):
             # https://arxiv.org/abs/1312.6114
             # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
             KLD_element = (1 + log_var - mu*mu - log_var.exp())
-            #KLD_element = mu.pow(2).add_(log_var.exp()).mul_(-1).add_(1).add_(log_var)
-            KLD = torch.mean(KLD_element).mul_(-0.5)
+            KLD = -0.5* torch.mean(KLD_element)
             KLD_ = KLD.data[0]
             my_loss = BCE + KLD
         else:
