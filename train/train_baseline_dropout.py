@@ -16,16 +16,16 @@ molecules = True
 grammar = True
 settings = get_settings(molecules,grammar)
 
-save_file =settings['filename_stub'] + 'baseline.h5'
+save_file =settings['filename_stub'] + 'baseline_dropout.h5'
 model, fitter = train_vae(molecules=molecules,
                           grammar=grammar,
                           BATCH_SIZE=200, # a p2.xlarge won't bear any bigger batches
                           save_file=save_file,
                           sample_z=True,
                           rnn_encoder=False,
+                          drop_rate=0.2,
                           lr=5e-4,
-                          plot_prefix='baseline lr 5e-4 KLW 0.01',
-                          KL_weight = 0.01)
+                          plot_prefix='baseline d0=0.2 lr 5e-4(1e-4)')
 
 while True:
     next(fitter)

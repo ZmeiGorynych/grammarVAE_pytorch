@@ -20,7 +20,7 @@ settings = get_settings(molecules,grammar)
 save_file =settings['filename_stub'] + 'dr0.5_rnnenc_no_sampl.h5'
 
 model, fitter = train_vae(molecules=molecules,
-                          BATCH_SIZE=200,
+                          BATCH_SIZE=150,
                           drop_rate=0.4,
                           save_file=save_file,
                           sample_z=False,

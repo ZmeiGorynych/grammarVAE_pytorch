@@ -118,25 +118,31 @@ class GrammarModel(object):
         return X_hat # , ln_p
 
     # TODO: keep trying to decode for max_attempts, until rdkit likes it!
-    def decode(self, z, validate = False, max_attempts = 10):
+    def decode_ext(self, z, validate = False, max_attempts = 10):
         """ Sample from the grammar decoder """
         assert z.ndim == 2
         unmasked = self.vae.decoder.decode(z)
         if not validate:
-            return self.decode_from_onehot(unmasked)
+            out, X_hat = self.decode_from_onehot(unmasked)
+            return out, X_hat
         else:
             import rdkit
             out = []
+            X_hats = []
             for x in unmasked:
                 for _ in range(max_attempts):
-                    smiles = self.decode_from_onehot(np.array([x]))[0]
-                    result = rdkit.Chem.MolFromSmiles(smiles)
+                    smiles, X_hat = self.decode_from_onehot(np.array([x]))
+                    result = rdkit.Chem.MolFromSmiles(smiles[0])
                     if result is not None:
                         break
-                out.append(smiles)
-            return out
+                out.append(smiles[0])
+                X_hats.append(X_hat)
+            return out, np.concatenate(X_hats, axis=0)
 
-        
+    def decode(self, z, validate = False, max_attempts = 10):
+        out, _ = self.decode_ext(z, validate, max_attempts)
+        return out
+
     def decode_from_onehot(self, unmasked):
         X_hat = self._sample_using_masks(unmasked)
         # Convert from one-hot to sequence of production rules
@@ -147,7 +153,7 @@ class GrammarModel(object):
         for ip, prods in enumerate(prod_seq):
             out.append(prods_to_eq(prods))
 
-        return out
+        return out, X_hat
 
 
 
@@ -243,19 +249,3 @@ def prods_to_eq(prods):
         return ''.join(seq)
     except:
         return ''
-
-try:
-    # inside a try-catch block so the rest also runs without rdkit
-    from rdkit.Chem import MolFromSmiles
-
-    def fraction_valid(smiles):
-        valid = [s for s in smiles if s != '' and MolFromSmiles(s) is not None]
-        invalid = [s for s in smiles if s != '' and MolFromSmiles(s) is None]
-        valid_lens = [len(MolFromSmiles(s).GetAtoms()) for s in valid]
-        num_valid = len(valid_lens)
-        avg_len = sum(valid_lens) / (len(valid_lens) + 1e-6)
-        max_len = 0 if not len(valid_lens) else max(valid_lens)
-        print(valid)
-        return (num_valid, avg_len, max_len), (valid,invalid)
-except:
-    pass

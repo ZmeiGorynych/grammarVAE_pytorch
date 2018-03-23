@@ -18,7 +18,7 @@ def get_settings(molecules = True, grammar = True):
                         'filename_stub': 'gramar_zinc_',
                         'grammar': grammar_zinc,
                         'z_size': 56,
-                        'decoder_hidden_n': 501,
+                        'decoder_hidden_n': 200, #mkusner/grammarVAE has 501 but that eats too much GPU :)
                         'feature_len': len(grammar_zinc.GCFG.productions()),
                         'max_seq_length': 277,
                         'cnn_encoder_params':{'kernel_sizes': (9, 9, 11),
@@ -36,7 +36,7 @@ def get_settings(molecules = True, grammar = True):
                         'charlist': zinc_charlist,
                         'grammar': None,
                         'z_size': 292,
-                        'decoder_hidden_n': 501,
+                        'decoder_hidden_n': 200, #mkusner/grammarVAE has 501 but that eats too much GPU :)
                         'feature_len': len(zinc_charlist),
                         'max_seq_length': 120,
                         'cnn_encoder_params':{'kernel_sizes': (9, 9, 11),

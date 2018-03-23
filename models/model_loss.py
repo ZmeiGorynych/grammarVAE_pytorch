@@ -15,13 +15,14 @@ from basic_pytorch.gpu_utils import to_gpu
 
 class VAELoss(nn.Module):
     # matches the impelentation in model_eq.py
-    def __init__(self, grammar=None, sample_z=False):
+    def __init__(self, grammar=None, sample_z=False, KL_weight = 0.01):
         '''
         :param masks: array of allowed transition rules from a given symbol
         '''
         super(VAELoss, self).__init__()
         self.sample_z = sample_z
         self.bce_loss = nn.BCELoss(size_average = True) #following mkusner/grammarVAE, earlier was False)
+        self.KL_weight = KL_weight
         if grammar is not None:
             self.masks = FloatTensor(grammar.masks)
             self.ind_to_lhs_ind = IntTensor(grammar.ind_to_lhs_ind)
@@ -57,9 +58,9 @@ class VAELoss(nn.Module):
             # https://arxiv.org/abs/1312.6114
             # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
             KLD_element = (1 + log_var - mu*mu - log_var.exp())
-            KLD = -0.5* torch.mean(KLD_element)
+            KLD = -0.5 * torch.mean(KLD_element)
             KLD_ = KLD.data[0]
-            my_loss = BCE + KLD
+            my_loss = BCE + self.KL_weight * KLD
         else:
             my_loss = BCE + mom_err
             KLD_ = 0

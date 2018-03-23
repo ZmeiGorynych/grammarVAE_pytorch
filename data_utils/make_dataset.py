@@ -2,11 +2,11 @@ import os, inspect
 import numpy as np
 import h5py
 from models.model_settings import get_settings
-
+from basic_pytorch.data_utils.data_sources import IncrementingHDF5Dataset
 # change this to true to produce the equation dataset
-molecules = True
+molecules = False
 # change this to True to get string-based encodings instead of grammar-based
-grammar = True
+grammar = False
 
 # can't define model class inside settings as it itself uses settings a lot
 if molecules:
@@ -36,19 +36,15 @@ for line in f:
 f.close()
 
 # convert to one-hot and save, in small increments to save RAM
-dataset_created = False
-with h5py.File(dest_file, 'w') as h5f:
-    for i in range(0, len(L), 1000):
-        print('Processing: i=[' + str(i) + ':' + str(i+1000) + ']')
-        onehot = my_model.string_to_one_hot(L[i:i + 1000])
-        if not dataset_created:
-            h5f.create_dataset('data', data=onehot,
-                               compression="gzip",
-                               compression_opts=9,
-                               maxshape = (len(L), MAX_LEN, feature_len))
-            dataset_created = True
-        else:
-            h5f["data"].resize(h5f["data"].shape[0] + onehot.shape[0], axis=0)
-            h5f["data"][-onehot.shape[0]:] = onehot
+ds = IncrementingHDF5Dataset(dest_file, valid_frac=0.1)
+
+for i in range(0, len(L), 1000):
+    print('Processing: i=[' + str(i) + ':' + str(i+1000) + ']')
+    onehot = my_model.string_to_one_hot(L[i:i + 1000])
+    ds.append(onehot)
 
 print('success!')
+train_ds, test_ds = ds.get_train_valid_datasets()
+len(train_ds)
+train_ds[0]
+
