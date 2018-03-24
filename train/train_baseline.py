@@ -17,9 +17,9 @@ grammar = True
 settings = get_settings(molecules,grammar)
 
 save_file =settings['filename_stub'] + 'baseline.h5'
-model, fitter = train_vae(molecules=molecules,
+model, fitter, _ = train_vae(molecules=molecules,
                           grammar=grammar,
-                          BATCH_SIZE=200, # a p2.xlarge won't bear any bigger batches
+                          BATCH_SIZE=250, # a p2.xlarge won't bear any bigger batches
                           save_file=save_file,
                           sample_z=True,
                           rnn_encoder=False,

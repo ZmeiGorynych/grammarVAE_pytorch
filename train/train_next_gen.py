@@ -15,7 +15,7 @@ from grammarVAE_pytorch.train.main_train_vae import train_vae
 from grammarVAE_pytorch.train.main_train_validity import train_validity
 from grammarVAE_pytorch.models.model_settings import get_settings
 from grammarVAE_pytorch.models.grammar_ed_models import ZincGrammarModel
-from models.rdkit_utils import fraction_valid
+from grammarVAE_pytorch.models.rdkit_utils import fraction_valid
 from basic_pytorch.models.simple_models import DenseHead
 import numpy as np
 from torch.autograd import Variable
@@ -31,12 +31,12 @@ dash_name = 'test'
 visdom = Dashboard(dash_name)
 model, fitter, main_dataset = train_vae(molecules=True,
                           grammar=True,
-                          BATCH_SIZE=200,
+                          BATCH_SIZE=150,
                           drop_rate=0.3,
-                          sample_z=False,
+                          sample_z=True,
                           save_file='next_gen.h5',
-                          rnn_encoder=True,
-                          lr=1e-4,
+                          rnn_encoder=False,
+                          lr=5e-4,
                           plot_prefix='RNN enc lr 1e-4',
                           dashboard=dash_name,
                           preload_weights=False)
@@ -52,8 +52,8 @@ invalid_smile_ds = IncrementingHDF5Dataset('invalid_smiles.h5', valid_frac=0.1)
 valid_fitter = train_validity(grammar = grammar,
               model = validity_model,
               EPOCHS = 100,
-              BATCH_SIZE = 50,
-              lr = 2e-4,
+              BATCH_SIZE = 40,
+              lr = 1e-4,
               main_dataset = main_dataset,
               new_datasets = (valid_smile_ds, invalid_smile_ds),
               save_file = None,
