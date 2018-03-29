@@ -8,6 +8,53 @@ import grammarVAE_pytorch.models.model_grammar_pytorch as models_torch
 import grammarVAE_pytorch.models.grammar_helper as grammar_helper
 
 
+class GrammarMaskGenerator:
+    def __init__(self, S_len, MAX_LEN, grammar=None):
+        self.S = [[] for _ in range(S_len)]
+        self.tdist_reduction = [False for _ in range(len(self.S))]
+        self.t = 0
+        self.MAX_LEN = MAX_LEN
+        self.grammar = grammar
+        self._lhs_map ={lhs: ix for ix, lhs in enumerate(self.grammar.lhs_list)}
+
+    def next_mask(self, last_action):
+        '''
+        Consumes one action at a time, responds with the mask for next action
+        : param last_action: previous action, array of ints of len = batch_size; None for the very first step
+        '''
+        if last_action is None:
+            # this is how we start
+            self.S = [[self.grammar.start_index] for _ in range(len(self.S))]
+
+        else:
+            # insert the non-terminals from last action into the stack in reverse order
+            rhs = [[x for x in self.grammar.GCFG.productions()[sampled_ind].rhs()
+                    if (type(x) == nltk.grammar.Nonterminal) and (str(x) != 'None')]
+                        for sampled_ind in last_action]
+
+            for ix, this_rhs in enumerate(rhs):
+                self.S[ix] += [x for x in this_rhs[::-1]]
+
+        # Have to calculate total terminal distance BEFORE we pop the next nonterminal!
+        self.term_distance = [sum([self.grammar.terminal_dist(sym) for sym in s]) for s in self.S]
+
+        # get the next nonterminal and look up the mask for it
+        next_nonterminal = [self._lhs_map[pop_or_nothing(a)] for a in self.S]
+        mask = self.grammar.masks[next_nonterminal]
+
+        # add masking to make sure the sequence always completes
+        # TODO: vectorize this
+        for ix, s in enumerate(self.S):
+            #term_distance = sum([self.grammar.terminal_dist(sym) for sym in s])
+            if self.term_distance[ix] >= self.MAX_LEN - self.t - self.grammar.max_term_dist_increase - 1:
+                self.tdist_reduction[ix] = True  # go into terminal distance reduction mode for that molecule
+            if self.tdist_reduction[ix]:
+                mask[ix] *= self.grammar.terminal_mask[0]
+
+
+        self.t += 1
+        return mask
+
 class GrammarModel(object):
     def __init__(self,
                  weights_file =None,
@@ -30,9 +77,9 @@ class GrammarModel(object):
             self._prod_map[prod] = ix
         self._parser = nltk.ChartParser(self.grammar.GCFG)
         self._n_chars = len(self._productions)
-        self._lhs_map = {}
-        for ix, lhs in enumerate(self.grammar.lhs_list):
-            self._lhs_map[lhs] = ix
+        # self._lhs_map = {}
+        # for ix, lhs in enumerate(self.grammar.lhs_list):
+        #     self._lhs_map[lhs] = ix
         if model is not None:
             self.vae = model
         else:
@@ -71,50 +118,14 @@ class GrammarModel(object):
             This is an implementation of Algorithm ? in the paper. """
         eps = 1e-100
         X_hat = np.zeros_like(unmasked)
-
-        # Create a stack for each input in the batch
-        S = np.empty((unmasked.shape[0],), dtype=object)
-        for ix in range(S.shape[0]):
-            S[ix] = [self.grammar.start_index]
-
+        mask_gen = GrammarMaskGenerator(unmasked.shape[0], self.MAX_LEN, grammar=self.grammar)
         # Loop over time axis, sampling values and updating masks
-        tdist_reduction = [False for _ in range(len(S))]
+        sampled_output = None
         for t in range(unmasked.shape[1]):
-            # print('S:', S,[self.grammar.terminal_dist(sym) for sym in S[0]],
-            #       sum([self.grammar.terminal_dist(sym) for sym in S[0]]),
-            #       self.MAX_LEN - t,self.MAX_LEN - t - self.grammar.max_term_dist_increase - 1 )
-            term_distance = [sum([self.grammar.terminal_dist(sym) for sym in s]) for s in S]
-            next_nonterminal = [self._lhs_map[pop_or_nothing(a)] for a in S]
-            mask = self.grammar.masks[next_nonterminal]
-
-            for ix, s in enumerate(S):
-                # if the number of total steps left to all terminals is at least the length of the sequence
-                #print('s:',s,[self.grammar.terminal_dist(sym) for sym in s],self.MAX_LEN - t - self.grammar.max_term_dist_increase - 3)
-                if term_distance[ix] >= self.MAX_LEN - t - self.grammar.max_term_dist_increase - 1:
-                    tdist_reduction[ix] = True # go into terminal distance reduction mode for that molecule
-                if tdist_reduction[ix]:
-                    mask[ix] *= self.grammar.terminal_mask[0]
-                    #print('****')
+            mask = mask_gen.next_mask(sampled_output)
             masked_output = np.exp(unmasked[:,t,:])*mask + eps
             sampled_output = np.argmax(np.random.gumbel(size=masked_output.shape) + np.log(masked_output), axis=-1)
-            this_prod = self.grammar.GCFG.productions()[sampled_output[0]]
-            #print(this_prod, self.grammar.terminal_dist(this_prod.lhs()),[self.grammar.terminal_dist(x) for x in this_prod.rhs()], tdist_reduction[ix])
             X_hat[np.arange(unmasked.shape[0]),t,sampled_output] = 1.0
-
-            # Identify non-terminals in RHS of selected production, and
-            # push them onto the stack in reverse order
-            # rhs = [filter(lambda a: (type(a) == nltk.grammar.Nonterminal) and (str(a) != 'None'),
-            #               self._productions[i].rhs()) for i in sampled_output]
-
-            rhs =[[x for x in self._productions[sampled_ind].rhs()
-                   if (type(x) == nltk.grammar.Nonterminal) and (str(x) != 'None')]
-                        for sampled_ind in sampled_output]
-
-
-            #rhs = [type(i) for i in sampled_output if (str(i) != 'None')]
-
-            for ix, this_rhs in enumerate(rhs):
-                S[ix].extend([x for x in this_rhs[::-1]])
         return X_hat # , ln_p
 
     # TODO: keep trying to decode for max_attempts, until rdkit likes it!
@@ -230,9 +241,9 @@ class ZincGrammarModel(GrammarModel):
 
 
 def pop_or_nothing(S):
-    try:
+    if len(S):
         return S.pop()
-    except:
+    else:
         return nltk.grammar.Nonterminal('Nothing')
 
 
@@ -248,4 +259,5 @@ def prods_to_eq(prods):
     try:
         return ''.join(seq)
     except:
-        return ''
+        raise Exception("We've run out of max_length but still have nonterminals: something is wrong here...")
+
