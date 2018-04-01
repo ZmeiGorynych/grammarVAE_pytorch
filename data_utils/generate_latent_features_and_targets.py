@@ -8,7 +8,7 @@ from grammarVAE_pytorch.bayesian_opt.get_score_components import get_score_compo
 
 my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 sys.path.insert(0, my_location + '/../')
-from grammarVAE_pytorch.models import grammar_ed_models as grammar_model
+from grammarVAE_pytorch.models import grammar_codec as grammar_model
 
 if __name__ == '__main__':
     smiles_fname = my_location + '/../data/250k_rndm_zinc_drugs_clean.smi'

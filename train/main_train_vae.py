@@ -2,13 +2,12 @@ import os, inspect
 import torch.optim as optim
 from torch.optim import lr_scheduler
 
-from grammarVAE_pytorch.models.grammar_helper import grammar_eq, grammar_zinc
-from grammarVAE_pytorch.models.model_grammar_pytorch import GrammarVariationalAutoEncoder
-from grammarVAE_pytorch.models.model_loss import VAELoss
+from grammarVAE_pytorch.models.variational_autoencoder import VAELoss
 from basic_pytorch.fit import fit
 from basic_pytorch.data_utils.data_sources import DatasetFromHDF5, train_valid_loaders, DuplicateIter
 from basic_pytorch.gpu_utils import use_gpu
-from grammarVAE_pytorch.models.model_settings import get_settings, get_model_args
+from grammarVAE_pytorch.models.model_settings import get_settings, get_model
+
 
 def train_vae(molecules = True,
               grammar = True,
@@ -35,18 +34,26 @@ def train_vae(molecules = True,
     if BATCH_SIZE is not None:
         settings['BATCH_SIZE'] = BATCH_SIZE
 
-    model_args = get_model_args(molecules,
-                                grammar,
-                                drop_rate=drop_rate,
-                                sample_z = sample_z,
-                                rnn_encoder=rnn_encoder)
+    # model_args = get_model_args(molecules,
+    #                             grammar,
+    #                             drop_rate=drop_rate,
+    #                             sample_z = sample_z,
+    #                             rnn_encoder=rnn_encoder)
 
-    model = GrammarVariationalAutoEncoder(**model_args)
-    if preload_weights:
-        try:
-            model.load(save_path)
-        except:
-            pass
+    model,_ = get_model(molecules=molecules,
+                        grammar=grammar,
+                        drop_rate=drop_rate,
+                        sample_z = sample_z,
+                        rnn_encoder=rnn_encoder,
+                        weights_file=save_path if preload_weights else None
+                        )
+
+    #model = GrammarVariationalAutoEncoder(**model_args)
+    # if preload_weights:
+    #     try:
+    #         model.load(save_path)
+    #     except:
+    #         pass
 
     optimizer = optim.Adam(model.parameters(), lr=lr)
 

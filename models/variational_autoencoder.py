@@ -1,16 +1,47 @@
 from collections import OrderedDict
 
 import torch
-from torch import nn as nn, FloatTensor, IntTensor
+from torch import nn as nn
 from torch.autograd import Variable
+import torch.nn as nn
 from torch.nn import functional as F
-# molecules = True
-# if molecules:
-#     from grammarVAE_pytorch.models.grammar_ed_models import ZincGrammarModel as GrammarModel
-# else:
-#     from grammarVAE_pytorch.models.grammar_ed_models import EquationGrammarModel as GrammarModel
 
-from basic_pytorch.gpu_utils import to_gpu
+from basic_pytorch.gpu_utils import FloatTensor, LongTensor, to_gpu
+
+
+class GrammarVariationalAutoEncoder(nn.Module):
+    def __init__(self, encoder = None,
+                 decoder = None,
+                 sample_z = True):
+        super(GrammarVariationalAutoEncoder, self).__init__()
+        self.sample_z = sample_z
+        self.encoder = to_gpu(encoder)
+        self.decoder = to_gpu(decoder)
+
+    def forward(self, x):
+        batch_size = x.size()[0]
+        mu, log_var = self.encoder(x)
+        # only sample when training, I regard sampling as a regularization technique so unneeded during validation
+        if self.sample_z and self.training:
+            z = self.sample(mu, log_var)
+        else:
+            z = mu
+        h1 = self.decoder.init_hidden(batch_size)
+        output, h1 = self.decoder(z, h1)
+        return output, mu, log_var
+
+    def sample(self, mu, log_var):
+        """you generate a random distribution w.r.t. the mu and log_var from the embedding space."""
+        vector_size = log_var.size()
+        eps = Variable(FloatTensor(vector_size).normal_())
+        std = log_var.mul(0.5).exp_()
+        return eps.mul(std).add_(mu)
+
+    def load(self, weights_file):
+        print('Trying to load model parameters from ', weights_file)
+        self.load_state_dict(torch.load(weights_file))
+        self.eval()
+        print('Success!')
 
 
 class VAELoss(nn.Module):
@@ -25,7 +56,7 @@ class VAELoss(nn.Module):
         self.KL_weight = KL_weight
         if grammar is not None:
             self.masks = FloatTensor(grammar.masks)
-            self.ind_to_lhs_ind = IntTensor(grammar.ind_to_lhs_ind)
+            self.ind_to_lhs_ind = LongTensor(grammar.ind_to_lhs_ind)
         else:
             self.masks = None
 
@@ -59,7 +90,7 @@ class VAELoss(nn.Module):
             # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
             KLD_element = (1 + log_var - mu*mu - log_var.exp())
             KLD = -0.5 * torch.mean(KLD_element)
-            KLD_ = KLD.data[0]
+            KLD_ = KLD.data.item()
             my_loss = BCE + self.KL_weight * KLD
         else:
             my_loss = BCE + mom_err
@@ -68,9 +99,9 @@ class VAELoss(nn.Module):
             # ignore regularizers when computing validation loss
             my_loss = BCE
 
-        self.metrics =OrderedDict([('BCE', BCE.data[0]),
+        self.metrics =OrderedDict([('BCE', BCE.data.item()),
                                    ('KLD', KLD_),
-                                   ('ME', mom_err.data[0])])
+                                   ('ME', mom_err.data.item())])
                                    # ('FV', FV)])#,
                                    # ('avg_len', avg_len),
                                    # ('max_len',max_len)])
@@ -92,8 +123,9 @@ def apply_masks(x_true, x_pred, masks, ind_to_lhs_ind):
     shift_to_tiny = -100 + (x_pred.min() - x_pred.max())
     for i in range(0,x_size[0]):
         for j in range(0, x_size[1]):
+            #print(x_true.data[i,j,:])
             # argmax
-            true_rule_ind = torch.max(x_true.data[i,j,:],0)[1][0]
+            _,true_rule_ind = torch.max(x_true.data[i,j,:],-1)#[1][0]
             # look up lhs from true one-hot, mask must be for that lhs
             mask[i,j,:] = masks[ind_to_lhs_ind[true_rule_ind]]
 

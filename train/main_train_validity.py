@@ -4,8 +4,7 @@ from torch.optim import lr_scheduler
 import torch.nn as nn
 
 from grammarVAE_pytorch.models.grammar_helper import grammar_eq, grammar_zinc
-from grammarVAE_pytorch.models.model_grammar_pytorch import GrammarVariationalAutoEncoder
-from grammarVAE_pytorch.models.model_loss import VAELoss
+from grammarVAE_pytorch.models.variational_autoencoder import GrammarVariationalAutoEncoder, VAELoss
 from basic_pytorch.fit import fit
 from basic_pytorch.data_utils.data_sources import DatasetFromHDF5, train_valid_loaders, DuplicateIter
 from basic_pytorch.gpu_utils import use_gpu

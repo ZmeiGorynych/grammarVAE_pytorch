@@ -11,14 +11,14 @@ grammar = False
 # can't define model class inside settings as it itself uses settings a lot
 if molecules:
     if grammar:
-        from grammarVAE_pytorch.models.grammar_ed_models import ZincGrammarModel as ThisModel
+        from grammarVAE_pytorch.models.grammar_codec import ZincGrammarModel as ThisModel
     else:
-        from grammarVAE_pytorch.models.character_ed_models import ZincCharacterModel as ThisModel
+        from grammarVAE_pytorch.models.character_codec import ZincCharacterModel as ThisModel
 else:
     if grammar:
-        from grammarVAE_pytorch.models.grammar_ed_models import EquationGrammarModel as ThisModel
+        from grammarVAE_pytorch.models.grammar_codec import EquationGrammarModel as ThisModel
     else:
-        from grammarVAE_pytorch.models.character_ed_models import EquationCharacterModel as ThisModel
+        from grammarVAE_pytorch.models.character_codec import EquationCharacterModel as ThisModel
 
 settings = get_settings(molecules,grammar)
 MAX_LEN = settings['max_seq_length']

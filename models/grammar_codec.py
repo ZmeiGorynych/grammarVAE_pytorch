@@ -2,30 +2,33 @@ import re
 import nltk
 import numpy as np
 
-
-
-import grammarVAE_pytorch.models.model_grammar_pytorch as models_torch
 import grammarVAE_pytorch.models.grammar_helper as grammar_helper
 
 
 class GrammarMaskGenerator:
-    def __init__(self, S_len, MAX_LEN, grammar=None):
-        self.S = [[] for _ in range(S_len)]
-        self.tdist_reduction = [False for _ in range(len(self.S))]
+    def __init__(self, MAX_LEN, grammar=None):
+        self.S = None
         self.t = 0
         self.MAX_LEN = MAX_LEN
         self.grammar = grammar
         self._lhs_map ={lhs: ix for ix, lhs in enumerate(self.grammar.lhs_list)}
 
-    def next_mask(self, last_action):
+    def reset(self):
+        self.S = None
+        self.t = 0
+
+    def __call__(self, last_action):
         '''
         Consumes one action at a time, responds with the mask for next action
         : param last_action: previous action, array of ints of len = batch_size; None for the very first step
         '''
-        if last_action is None:
-            # this is how we start
-            self.S = [[self.grammar.start_index] for _ in range(len(self.S))]
+        if self.t >= self.MAX_LEN:
+            raise StopIteration
 
+        if last_action[0] is None:
+            # first call
+            self.S = [[self.grammar.start_index] for _ in range(len(last_action))]
+            self.tdist_reduction = [False for _ in range(len(self.S))]
         else:
             # insert the non-terminals from last action into the stack in reverse order
             rhs = [[x for x in self.grammar.GCFG.productions()[sampled_ind].rhs()
@@ -53,44 +56,32 @@ class GrammarMaskGenerator:
 
 
         self.t += 1
-        return mask
+        return mask#.astype(int)
 
 class GrammarModel(object):
     def __init__(self,
                  weights_file =None,
                  model = None,
-                 rnn_encoder=True,
-                 latent_rep_size=None,
+                 #rnn_encoder=True,
+                 #latent_rep_size=None,
                  max_len = None,
                  grammar = None,
-                 model_type=models_torch.GrammarVariationalAutoEncoder,
+                 #model_type=models_torch.GrammarVariationalAutoEncoder,
                  tokenizer = None):
         """ Load the (trained) zinc encoder/decoder, grammar model. """
         self.grammar = grammar
         #self._model = model
         self._tokenize = tokenizer
         self.MAX_LEN = max_len
-
         self._productions = self.grammar.GCFG.productions()
         self._prod_map = {}
         for ix, prod in enumerate(self._productions):
             self._prod_map[prod] = ix
         self._parser = nltk.ChartParser(self.grammar.GCFG)
         self._n_chars = len(self._productions)
-        # self._lhs_map = {}
-        # for ix, lhs in enumerate(self.grammar.lhs_list):
-        #     self._lhs_map[lhs] = ix
+        self.mask_gen = GrammarMaskGenerator(self.MAX_LEN, grammar=self.grammar)
         if model is not None:
             self.vae = model
-        else:
-            # assume model hidden_n and encoder_kernel_size are always the same
-            # TODO: should make better use of model_settings here!
-            self.vae = model_type(z_size=latent_rep_size,
-                             feature_len=len(self._productions),
-                             max_seq_length=self.MAX_LEN,
-                             rnn_encoder=rnn_encoder)
-            if weights_file is not None:
-                self.vae.load(weights_file)
         self.vae.eval()
 
     def string_to_one_hot(self, smiles):
@@ -114,18 +105,21 @@ class GrammarModel(object):
         return z_mean
 
     def _sample_using_masks(self, unmasked):
-        """ Samples a one-hot vector, masking at each timestep.
-            This is an implementation of Algorithm ? in the paper. """
+        """
+        Samples a one-hot vector from a softmax distribution, masking at each timestep.
+        This is an implementation of Algorithm ? in the paper.
+        : param unmasked: array of unmasked logits
+        """
         eps = 1e-100
         X_hat = np.zeros_like(unmasked)
-        mask_gen = GrammarMaskGenerator(unmasked.shape[0], self.MAX_LEN, grammar=self.grammar)
-        # Loop over time axis, sampling values and updating masks
-        sampled_output = None
+        sampled_output = [None]*len(unmasked)
         for t in range(unmasked.shape[1]):
-            mask = mask_gen.next_mask(sampled_output)
-            masked_output = np.exp(unmasked[:,t,:])*mask + eps
-            sampled_output = np.argmax(np.random.gumbel(size=masked_output.shape) + np.log(masked_output), axis=-1)
+            mask = self.mask_gen(sampled_output)
+            masked_output = unmasked[:, t, :] + -1e4*(1 - mask) # proxy for -inf
+            # https://hips.seas.harvard.edu/blog/2013/04/06/the-gumbel-max-trick-for-discrete-distributions/
+            sampled_output = np.argmax(np.random.gumbel(size=masked_output.shape) + masked_output, axis=-1)
             X_hat[np.arange(unmasked.shape[0]),t,sampled_output] = 1.0
+        self.mask_gen.reset()
         return X_hat # , ln_p
 
     # TODO: keep trying to decode for max_attempts, until rdkit likes it!
@@ -166,8 +160,6 @@ class GrammarModel(object):
 
         return out, X_hat
 
-
-
 def eq_tokenizer(s):
     funcs = ['sin', 'exp']
     for fn in funcs: s = s.replace(fn+'(', fn+' ')
@@ -175,23 +167,6 @@ def eq_tokenizer(s):
     for fn in funcs: s = s.replace(fn, fn+'(')
     return s.split()
 
-
-class EquationGrammarModel(GrammarModel):
-    def __init__(self, weights_file = None,
-                 model=None,
-                 latent_rep_size=56,
-                 max_len=15,
-                 grammar=grammar_helper.grammar_eq,
-                 model_type=models_torch.GrammarVariationalAutoEncoder,#models.model_eq.MoleculeVAE(),
-                 tokenizer=eq_tokenizer):
-        """ Load the (trained) zinc encoder/decoder, grammar model. """
-        super().__init__(weights_file,
-                         latent_rep_size=latent_rep_size,
-                         max_len=max_len,
-                         grammar=grammar,
-                         model=model,
-                         model_type=model_type,
-                         tokenizer=tokenizer)
 
 def get_zinc_tokenizer(cfg):
     long_tokens = [a for a in cfg._lexical_index.keys() if  len(a) > 1 ] #filter(lambda a: len(a) > 1, cfg._lexical_index.keys())
@@ -215,30 +190,7 @@ def get_zinc_tokenizer(cfg):
 
     return tokenize
 
-
-# TODO: get all the zinc vs eq bits from model_settings!
 zinc_tokenizer = get_zinc_tokenizer(grammar_helper.grammar_zinc.GCFG)
-
-
-class ZincGrammarModel(GrammarModel):
-    def __init__(self,
-                 weights_file=None,
-                 model=None,
-                 rnn_encoder=True,
-                 latent_rep_size=56,
-                 max_len=277,
-                 grammar=grammar_helper.grammar_zinc,
-                 model_type =models_torch.GrammarVariationalAutoEncoder,#models.model_zinc.MoleculeVAE(),
-                 tokenizer=zinc_tokenizer):
-        super().__init__(weights_file,
-                         rnn_encoder=rnn_encoder,
-                         latent_rep_size=latent_rep_size,
-                         max_len=max_len,
-                         grammar=grammar,
-                         model=model,
-                         model_type=model_type,
-                         tokenizer=tokenizer)
-
 
 def pop_or_nothing(S):
     if len(S):
@@ -260,4 +212,6 @@ def prods_to_eq(prods):
         return ''.join(seq)
     except:
         raise Exception("We've run out of max_length but still have nonterminals: something is wrong here...")
+
+
 

@@ -1,14 +1,16 @@
 # import sys
 # sys.path.append('..')
 import os, inspect
-from grammarVAE_pytorch.models import grammar_ed_models as grammar_model
 import numpy as np
+from grammarVAE_pytorch.models.model_settings import get_settings, get_model
 
 # We load the auto-encoder
 my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-grammar_model = grammar_model.ZincGrammarModel()
-z = grammar_model.encode(['c1nccc2n1ccc2'])
-for _ in range(100):
-    z = np.random.normal(size=(1,56))
-    new_smile = grammar_model.decode(z)
-    print(new_smile)
+for molecules in [True, False]:
+    for grammar in [True, False]:
+        model, wrapper_model = get_model(molecules=molecules, grammar=grammar)
+        settings = get_settings(molecules=molecules, grammar=grammar)
+        for _ in range(100):
+            z = np.random.normal(size=(1,settings['z_size']))
+            new_smile = wrapper_model.decode(z)
+            print(new_smile)

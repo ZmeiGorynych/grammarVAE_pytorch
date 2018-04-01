@@ -4,7 +4,7 @@ import h5py
 import os, inspect,sys
 import numpy as np
 from bayesian_opt.get_score_components import get_score_components
-from grammarVAE_pytorch.models import grammar_ed_models as grammar_model
+from grammarVAE_pytorch.models import grammar_codec as grammar_model
 import GPy
 import GPyOpt
 my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
