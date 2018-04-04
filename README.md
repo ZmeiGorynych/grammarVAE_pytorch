@@ -11,10 +11,11 @@ generalize the code to work with both equations and molecules, and fix a minor b
 
 ## Requirements
 
-* requirements.txt 
+* `pip install -r requirements.txt`
+* `pip install gpyopt` : need to do separately, after the other requirements (that's been fixed in gpyopt source apparently, issue 143, but not yet in the package)
 * pytorch 0.4 and visdom, both should be installed from source (as of March 2018).
 * rdkit: `conda install -c rdkit rdkit`
-* `github/ZmeiGorynych/basic_pytorch`: just download the source and add to your path
+* `github/ZmeiGorynych/basic_pytorch`: just download the source and add the folder containing basic_pytorch to your path
 
 
 ## How to run

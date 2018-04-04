@@ -1,6 +1,9 @@
 import numpy as np
+from grammarVAE_pytorch.models.reinforcement.reinforcement import SimpleDiscreteDecoder,SoftmaxRandomSamplePolicy, OneStepDecoderContinuous
+from grammarVAE_pytorch.models.codec import GenericCodec
+import torch
 
-class CharacterModel(object):
+class CharacterModel(GenericCodec):
     def __init__(self,
                  model = None,
                  max_len = None,
@@ -12,8 +15,14 @@ class CharacterModel(object):
         self._char_index = {}
         for ix, char in enumerate(self.charlist):
             self._char_index[char] = ix
-        self.vae = model
-        self.vae.eval()
+        #self.mask_gen = None
+        if model is not None:
+            self.vae = model
+            self.vae.eval()
+            self.decoder = self.vae.decoder
+        # policy = SoftmaxRandomSamplePolicy()
+        # stepper = OneStepDecoderContinuous(self.vae.decoder)
+        # self.decoder = SimpleDiscreteDecoder(stepper, policy, self.mask_gen)
 
     def string_to_one_hot(self, smiles):
         """ Encode a list of smiles strings into the latent space """
@@ -25,82 +34,62 @@ class CharacterModel(object):
             one_hot[i][np.arange(num_productions, self.MAX_LEN),-1] = 1.
         return one_hot
 
-    def encode(self, smiles):
-        one_hot = self.string_to_one_hot(smiles)
-        z_mean = self.vae.encoder.encode(one_hot)
-        return z_mean
+    # # TODO: move to superclass?
+    # def encode(self, smiles):
+    #     one_hot = self.string_to_one_hot(smiles)
+    #     z_mean = self.vae.encoder.encode(one_hot)
+    #     if type(z_mean) == tuple:
+    #         z_mean = z_mean[0]
+    #     return z_mean
+    #
+    # def latent_to_actions(self, z):
+    #     """ Sample from the grammar decoder """
+    #     assert z.ndim == 2
+    #
+    #     if type(z) == np.ndarray:
+    #         numpy_output = True
+    #         z = FloatTensor(z)
+    #     else:
+    #         numpy_output=False
+    #
+    #     actions, logits = self.decoder(z)
+    #     if numpy_output:
+    #         actions = actions.cpu().numpy()
+    #         logits = logits.detach().cpu().numpy()
+    #     return actions, logits
 
-    def decode(self, z, validate = False, max_attempts = 10):
-        """ Sample from the character decoder """
-        assert z.ndim == 2
-        out = self.vae.decoder.decode(z)
-        if not validate:
-            return self.decode_from_onehot(out)
-        else:
-            import rdkit
-            out = []
-            for x in out:
-                for _ in range(max_attempts):
-                    smiles = self.decode_from_onehot(np.array([x]))[0]
-                    result = rdkit.Chem.MolFromSmiles(smiles)
-                    if result is not None:
-                        break
-                out.append(smiles)
-            return out
-
-    def decode_from_onehot(self, out):
-        noise = np.random.gumbel(size=out.shape)
-        sampled_chars = np.argmax(np.log(out) + noise, axis=-1)
-        char_matrix = np.array(self.charlist)[np.array(sampled_chars, dtype=int)]
+    def decode_from_actions(self, actions):
+        char_matrix = np.array(self.charlist)[np.array(actions, dtype=int)]
         return [''.join(ch).strip() for ch in char_matrix]
 
-
-
-# class EquationCharacterModel(CharacterModel):
-#     def __init__(self,
-#                  weights_file = None,
-#                  model=None,
-#                  latent_rep_size=None,
-#                  max_len = None,
-#                  charlist=None,
-#                  model_type=models_torch.GrammarVariationalAutoEncoder  # models.model_eq.MoleculeVAE(),
-#                  ):
-#         settings = get_settings(molecules=False, grammar=False)
-#         if latent_rep_size is None:
-#             latent_rep_size = settings['z_size']
-#         if max_len is None:
-#             max_len = settings['max_seq_length']
-#         if charlist is None:
-#             charlist = settings['charlist']
-#
-#         super().__init__(max_len=max_len,
-#                          charlist=charlist,
-#                          model=model,)
-#
-#
-# class ZincCharacterModel(CharacterModel):
-#     def __init__(self,
-#                  weights_file=None,
-#                  model=None,
-#                  latent_rep_size=None,
-#                  max_len = None,
-#                  charlist = None,
-#                  model_type = models_torch.GrammarVariationalAutoEncoder
-#                  ):
-#         settings = get_settings(molecules=True,grammar=False)
-#         if latent_rep_size is None:
-#             latent_rep_size = settings['z_size']
-#         if max_len is None:
-#             max_len = settings['max_seq_length']
-#         if charlist is None:
-#             charlist = settings['charlist']
-#
-#         super().__init__(weights_file,
-#                          latent_rep_size=latent_rep_size,
-#                          max_len=max_len,
-#                          charlist=charlist,
-#                          model=model,
-#                          model_type=model_type
-#                          )
+    # TODO: move to superclass
+    # def decode(self, z):
+    #     actions, logits = self.latent_to_actions(z)
+    #     smiles = self.decode_from_actions(actions)
+    #     return smiles, actions
+    #
+    # # TODO: move to superclass; works only for molecules
+    # def decode_with_validation(self, z, max_attempts = 10):
+    #     import rdkit
+    #     if type(z) == np.ndarray:
+    #         numpy_output = True
+    #         z = FloatTensor(z)
+    #     else:
+    #         numpy_output=False
+    #
+    #     out = []
+    #     actions = []
+    #     for this_z in z:
+    #         for _ in range(max_attempts):
+    #             smiles, action = self.decode(torch.unsqueeze(this_z,0))
+    #             result = rdkit.Chem.MolFromSmiles(smiles[0])
+    #             if result is not None:
+    #                 break
+    #         out.append(smiles[0])
+    #         actions.append(action)
+    #     actions = torch.cat(actions, axis=0)
+    #     if numpy_output:
+    #         actions = actions.cpu().numpy()
+    #     return out, actions
 
 

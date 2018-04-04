@@ -1,7 +1,5 @@
 h5py
 nltk
-gpy
-gpyopt
 numpy
 scipy
 scikit-learn
@@ -9,4 +7,5 @@ matplotlib
 pandas
 tables
 argparse
-progressbar
+gpy
+

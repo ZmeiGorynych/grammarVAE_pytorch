@@ -4,8 +4,10 @@ from grammarVAE_pytorch.models import variational_autoencoder as models_torch
 from grammarVAE_pytorch.models.character_codec import CharacterModel
 from grammarVAE_pytorch.models.grammar_codec import GrammarModel, zinc_tokenizer, eq_tokenizer
 from grammarVAE_pytorch.models.grammar_helper import grammar_eq, grammar_zinc
-from basic_pytorch.models.rnn_models import SimpleRNNDecoder,SimpleRNNAttentionEncoder
+from grammarVAE_pytorch.models.grammar_mask_gen import GrammarMaskGenerator
+from basic_pytorch.models.rnn_models import SimpleRNNDecoder, SimpleRNNAttentionEncoder, ResettingRNNDecoder
 from grammarVAE_pytorch.models.encoders import SimpleCNNEncoder
+from grammarVAE_pytorch.models.reinforcement.reinforcement import SoftmaxRandomSamplePolicy, SimpleDiscreteDecoder, OneStepDecoderContinuous
 from basic_pytorch.gpu_utils import to_gpu
 # in the desired end state, this file will contain every single difference between the different models
 
@@ -116,7 +118,7 @@ def get_model(molecules=True, grammar = True, weights_file=None, **kwargs):
         if key in model_args:
             model_args[key] = value
     sample_z = model_args.pop('sample_z')
-    encoder, decoder = get_encoder_decoder(**model_args)
+    encoder, decoder = get_encoder_decoder(molecules,grammar,**model_args)
     model = models_torch.GrammarVariationalAutoEncoder(encoder=encoder, decoder=decoder, sample_z=sample_z)
 
     if weights_file is not None:
@@ -135,7 +137,9 @@ def get_model(molecules=True, grammar = True, weights_file=None, **kwargs):
                                      )
     return model, wrapper_model
 
-def get_encoder_decoder(z_size=200,
+def get_encoder_decoder(molecules = True,
+                        grammar=True,
+                        z_size=200,
                  decoder_hidden_n=200,
                  feature_len=12,
                  max_seq_length=15,
@@ -145,7 +149,7 @@ def get_encoder_decoder(z_size=200,
                  drop_rate = 0.0,
                  rnn_encoder = False,
                  rnn_encoder_hidden_n = 200):
-
+    settings = get_settings(molecules,grammar)
     if rnn_encoder:
         encoder = to_gpu(SimpleRNNAttentionEncoder(max_seq_length=max_seq_length,
                                                         z_size=z_size,
@@ -159,11 +163,19 @@ def get_encoder_decoder(z_size=200,
                                                feature_len=feature_len,
                                                drop_rate=drop_rate))
 
-    decoder = to_gpu(SimpleRNNDecoder(z_size=z_size,
+    pre_decoder = ResettingRNNDecoder(z_size=z_size,
                                        hidden_n=decoder_hidden_n,
                                        feature_len=feature_len,
                                        max_seq_length=max_seq_length,
-                                       drop_rate=drop_rate))
+                                       drop_rate=drop_rate)
+    if grammar:
+        mask_gen = GrammarMaskGenerator(max_seq_length, grammar=settings['grammar'])
+    else:
+        mask_gen = None
+    policy = SoftmaxRandomSamplePolicy()
+    stepper = OneStepDecoderContinuous(pre_decoder)
+    decoder = to_gpu(SimpleDiscreteDecoder(stepper, policy, mask_gen))#, bypass_actions=True))
+
     return encoder, decoder
 
 if __name__=='__main__':

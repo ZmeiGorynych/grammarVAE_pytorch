@@ -19,15 +19,15 @@ class GrammarVariationalAutoEncoder(nn.Module):
         self.decoder = to_gpu(decoder)
 
     def forward(self, x):
-        batch_size = x.size()[0]
+        #batch_size = x.size()[0]
         mu, log_var = self.encoder(x)
         # only sample when training, I regard sampling as a regularization technique so unneeded during validation
         if self.sample_z and self.training:
             z = self.sample(mu, log_var)
         else:
             z = mu
-        h1 = self.decoder.init_hidden(batch_size)
-        output, h1 = self.decoder(z, h1)
+        #h1 = self.decoder.init_hidden(batch_size)
+        actions, output = self.decoder(z)
         return output, mu, log_var
 
     def sample(self, mu, log_var):

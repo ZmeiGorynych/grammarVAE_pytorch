@@ -1,7 +1,7 @@
 import os, inspect
 import numpy as np
 import h5py
-from models.model_settings import get_settings
+from grammarVAE_pytorch.models.model_settings import get_settings, get_model
 from basic_pytorch.data_utils.data_sources import IncrementingHDF5Dataset
 # change this to true to produce the equation dataset
 molecules = False
@@ -9,24 +9,13 @@ molecules = False
 grammar = False
 
 # can't define model class inside settings as it itself uses settings a lot
-if molecules:
-    if grammar:
-        from grammarVAE_pytorch.models.grammar_codec import ZincGrammarModel as ThisModel
-    else:
-        from grammarVAE_pytorch.models.character_codec import ZincCharacterModel as ThisModel
-else:
-    if grammar:
-        from grammarVAE_pytorch.models.grammar_codec import EquationGrammarModel as ThisModel
-    else:
-        from grammarVAE_pytorch.models.character_codec import EquationCharacterModel as ThisModel
-
+_, my_model = get_model(molecules,grammar)
 settings = get_settings(molecules,grammar)
 MAX_LEN = settings['max_seq_length']
 feature_len = settings['feature_len']
 dest_file = settings['data_path']
 source_file = settings['source_data']
 
-my_model = ThisModel()
 # Read in the strings
 f = open(source_file,'r')
 L = []
@@ -39,12 +28,14 @@ f.close()
 ds = IncrementingHDF5Dataset(dest_file, valid_frac=0.1)
 
 for i in range(0, len(L), 1000):
+#for i in range(0, 10000, 1000):
     print('Processing: i=[' + str(i) + ':' + str(i+1000) + ']')
     onehot = my_model.string_to_one_hot(L[i:i + 1000])
     ds.append(onehot)
 
 print('success!')
-train_ds, test_ds = ds.get_train_valid_datasets()
-len(train_ds)
-train_ds[0]
+train_loader, valid_loader = ds.get_train_valid_loaders(batch_size=100)
+len(valid_loader)
+
+print('success!')
 

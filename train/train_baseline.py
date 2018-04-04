@@ -12,14 +12,14 @@ except:
 from grammarVAE_pytorch.train.main_train_vae import train_vae
 from grammarVAE_pytorch.models.model_settings import get_settings
 
-molecules = True
+molecules = False
 grammar = True
 settings = get_settings(molecules,grammar)
 
 save_file =settings['filename_stub'] + 'baseline.h5'
 model, fitter, _ = train_vae(molecules=molecules,
                           grammar=grammar,
-                          BATCH_SIZE=250, # a p2.xlarge won't bear any bigger batches
+                          BATCH_SIZE=5, # a p2.xlarge won't bear any bigger batches
                           save_file=save_file,
                           sample_z=True,
                           rnn_encoder=False,
