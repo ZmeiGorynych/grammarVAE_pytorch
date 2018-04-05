@@ -7,7 +7,8 @@ from grammarVAE_pytorch.models.grammar_helper import grammar_eq, grammar_zinc
 from grammarVAE_pytorch.models.grammar_mask_gen import GrammarMaskGenerator
 from basic_pytorch.models.rnn_models import SimpleRNNDecoder, SimpleRNNAttentionEncoder, ResettingRNNDecoder
 from grammarVAE_pytorch.models.encoders import SimpleCNNEncoder
-from grammarVAE_pytorch.models.reinforcement.reinforcement import SoftmaxRandomSamplePolicy, SimpleDiscreteDecoder, OneStepDecoderContinuous
+from grammarVAE_pytorch.models.reinforcement.reinforcement import SimpleDiscreteDecoder, OneStepDecoderContinuous, OneStepDecoder, OneStepDecoderUsingAction
+from grammarVAE_pytorch.models.policy import SoftmaxRandomSamplePolicy
 from basic_pytorch.gpu_utils import to_gpu
 # in the desired end state, this file will contain every single difference between the different models
 
@@ -162,18 +163,36 @@ def get_encoder_decoder(molecules = True,
                                                z_size=z_size,
                                                feature_len=feature_len,
                                                drop_rate=drop_rate))
-
-    pre_decoder = ResettingRNNDecoder(z_size=z_size,
+    decoder_type = 'step'
+    if decoder_type=='old':
+        pre_decoder = ResettingRNNDecoder(z_size=z_size,
+                                           hidden_n=decoder_hidden_n,
+                                           feature_len=feature_len,
+                                           max_seq_length=max_seq_length,
+                                           drop_rate=drop_rate)
+        stepper = OneStepDecoderContinuous(pre_decoder)
+    elif decoder_type=='step':
+        pre_decoder = SimpleRNNDecoder(z_size=z_size,
+                                          hidden_n=decoder_hidden_n,
+                                          feature_len=feature_len,
+                                          max_seq_length=1,
+                                          drop_rate=drop_rate)
+        stepper = OneStepDecoder(pre_decoder, max_len=max_seq_length)
+    elif decoder_type=='action':
+        pre_decoder = SimpleRNNDecoder(z_size=z_size + feature_len,
                                        hidden_n=decoder_hidden_n,
                                        feature_len=feature_len,
-                                       max_seq_length=max_seq_length,
+                                       max_seq_length=1,
                                        drop_rate=drop_rate)
+        stepper = OneStepDecoderUsingAction(pre_decoder,
+                                            max_len=max_seq_length,
+                                            num_actions=feature_len)
     if grammar:
         mask_gen = GrammarMaskGenerator(max_seq_length, grammar=settings['grammar'])
     else:
         mask_gen = None
     policy = SoftmaxRandomSamplePolicy()
-    stepper = OneStepDecoderContinuous(pre_decoder)
+
     decoder = to_gpu(SimpleDiscreteDecoder(stepper, policy, mask_gen))#, bypass_actions=True))
 
     return encoder, decoder

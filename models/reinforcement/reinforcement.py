@@ -1,9 +1,9 @@
 import torch
 from torch.autograd import Variable
-import torch.nn.functional as F
 import torch.nn as nn
-from basic_pytorch.gpu_utils import FloatTensor, LongTensor, to_gpu
-from torch.distributions.gumbel import Gumbel
+from basic_pytorch.gpu_utils import FloatTensor, to_gpu
+from grammarVAE_pytorch.models.codec import to_one_hot
+from grammarVAE_pytorch.models.policy import SimplePolicy, SoftmaxRandomSamplePolicy, PolicyFromTarget
 
 
 class OneStepDecoder(nn.Module):
@@ -12,7 +12,7 @@ class OneStepDecoder(nn.Module):
     (so the encoded state is a vector not a sequence)
 
     '''
-    def __init__(self, model):
+    def __init__(self, model, max_len = None):
         '''
         Base class for doing the differentiable part of one decoding step
         :param model: a differentiable model used in the steps
@@ -21,6 +21,7 @@ class OneStepDecoder(nn.Module):
         self.n = 0
         self.model = to_gpu(model)
         self.model.eval()
+        self.max_len = max_len
 
     def init_latent(self, z):
         '''
@@ -31,18 +32,60 @@ class OneStepDecoder(nn.Module):
         self.z = z
         self.n = 0
         try:
-            self.model.reset_state(len(z))
+            self.model.reset_state()
         except:
             pass
 
-    def forward(self, action=None):
+    def forward(self, action):
         '''
         # the differentiable part of one decoding step
         :param action: LongTensor((batch_size)), last discrete action chosen by the policy,
         None for the very first action choice
         :return: FloatTensor((batch_size x num_actions)), an unmasked vector of logits over next actions
         '''
-        raise NotImplementedError("This is a base class")
+        if self.n < self.max_len:
+            out = self.model(self.z)
+            out = torch.squeeze(out,1)
+            self.n += 1
+            return out
+        else:
+            raise StopIteration()
+
+class OneStepDecoderUsingAction(OneStepDecoder):
+    def __init__(self, model, max_len=None, num_actions = None):
+        '''
+        Base class for doing the differentiable part of one decoding step
+        :param model: a differentiable model used in the steps
+        '''
+        super().__init__(model, max_len)
+        self.num_actions = num_actions
+
+    def init_latent(self, z):
+        super().init_latent(z)
+        self.one_hot_action = to_gpu(torch.zeros(len(self.z), self.num_actions))
+
+    def forward(self, action):
+        '''
+        # the differentiable part of one decoding step
+        :param action: LongTensor((batch_size)), last discrete action chosen by the policy,
+        None for the very first action choice
+        :return: FloatTensor((batch_size x num_actions)), an unmasked vector of logits over next actions
+        '''
+        if self.n < self.max_len:
+            if True:#type(action)== list or len(action.shape) == 1: # if the actions came encoded as ints
+                if action is not None and action[0] is not None: # if not first call
+                    self.one_hot_action = to_one_hot(action,
+                                                n_dims=self.num_actions,
+                                                out = self.one_hot_action)
+                model_input = torch.cat([self.z,self.one_hot_action], 1)
+            # else: # if the actions already came encoded as one-hot
+            #     model_input = torch.cat([self.z, action], 1)
+            out = self.model(model_input)
+            out = torch.squeeze(out, 1)
+            self.n += 1
+            return out
+        else:
+            raise StopIteration()
 
 
 class OneStepDecoderContinuous(OneStepDecoder):
@@ -70,53 +113,6 @@ class OneStepDecoderContinuous(OneStepDecoder):
         else:
             raise StopIteration()
 
-class SimplePolicy(nn.Module):
-    '''
-    Base class for a simple action selector
-    '''
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, logits:Variable):
-        '''
-        Returns the index of the action chosen for each batch
-        :param logits: batch x num_actions, float
-        :return: ints, size = (batch)
-        '''
-        return NotImplementedError
-
-class MaxPolicy(SimplePolicy):
-    '''
-    Returns one-hot encoding of the biggest logit value in each batch
-    '''
-    def forward(self, logits:Variable):
-        _, max_ind = torch.max(logits,1) # argmax
-        return max_ind
-
-class SoftmaxRandomSamplePolicy(SimplePolicy):
-    '''
-    Randomly samples from the softmax of the logits
-    # https://hips.seas.harvard.edu/blog/2013/04/06/the-gumbel-max-trick-for-discrete-distributions/
-    TODO: should probably switch that to something more like
-    http://pytorch.org/docs/master/distributions.html
-    '''
-    def forward(self, logits:Variable):
-        _, out = torch.max(to_gpu(Gumbel(loc=0, scale=1).sample(logits.shape)) + logits, -1)
-        return out
-
-class PolicyFromTarget(SimplePolicy):
-    '''
-    Just returns the next row from a target one-hot sequence - useful for computing losses for encoders
-    '''
-    def __init__(self, target):
-        super().__init__()
-        self.target = target
-        self.n = 0
-
-    def forward(self, logits):
-        out = torch.squeeze(self.target[:,self.n,:],1)
-        self.n += 1
-        return out
 
 class DummyMaskGenerator(nn.Module):
     def __init__(self, num_actions):
@@ -162,7 +158,7 @@ class SimpleDiscreteDecoder(nn.Module):
             return None, self.stepper.logits
         out_logits = []
         out_actions = []
-        last_action = None
+        last_action = [None]*len(z)
         step = 0
         # as it's PyTorch, can determine max_len dynamically, by when the stepper raises StopIteration
         while True:
@@ -170,9 +166,6 @@ class SimpleDiscreteDecoder(nn.Module):
   #          if True:
                 # dimension batch x num_actions
                 next_logits = self.stepper(last_action)
-                if last_action is None:
-                    # need correct length to convey number of batches to the mask generator
-                    last_action = [None]*len(next_logits)
                 if self.mask_gen is not None:
                     # mask_gen might return a numpy mask
                     mask = FloatTensor(self.mask_gen(last_action))
@@ -184,7 +177,8 @@ class SimpleDiscreteDecoder(nn.Module):
                 out_logits.append(torch.unsqueeze(masked_logits,1))
                 out_actions.append(torch.unsqueeze(next_action,1))
                 last_action = next_action
-            except StopIteration:
+            except StopIteration as e:
+                #print(e)
                 break
         if self.mask_gen is not None:
             self.mask_gen.reset()

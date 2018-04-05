@@ -1,5 +1,6 @@
 import numpy as np
-from grammarVAE_pytorch.models.reinforcement.reinforcement import SimpleDiscreteDecoder,SoftmaxRandomSamplePolicy, OneStepDecoderContinuous
+from grammarVAE_pytorch.models.reinforcement.reinforcement import SimpleDiscreteDecoder, OneStepDecoderContinuous
+from grammarVAE_pytorch.models.policy import SoftmaxRandomSamplePolicy
 from grammarVAE_pytorch.models.codec import GenericCodec
 import torch
 

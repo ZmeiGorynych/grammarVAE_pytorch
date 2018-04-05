@@ -5,6 +5,7 @@ from torch import nn as nn
 from torch.autograd import Variable
 import torch.nn as nn
 from torch.nn import functional as F
+from grammarVAE_pytorch.models.policy import PolicyFromTarget
 
 from basic_pytorch.gpu_utils import FloatTensor, LongTensor, to_gpu
 
@@ -19,14 +20,16 @@ class GrammarVariationalAutoEncoder(nn.Module):
         self.decoder = to_gpu(decoder)
 
     def forward(self, x):
-        #batch_size = x.size()[0]
+
         mu, log_var = self.encoder(x)
         # only sample when training, I regard sampling as a regularization technique so unneeded during validation
         if self.sample_z and self.training:
             z = self.sample(mu, log_var)
         else:
             z = mu
-        #h1 = self.decoder.init_hidden(batch_size)
+        # need to re-trace the path taken by the training input
+        _,x_actions = torch.max(x,-1)
+        self.decoder.policy = PolicyFromTarget(x_actions)
         actions, output = self.decoder(z)
         return output, mu, log_var
 
@@ -52,7 +55,7 @@ class VAELoss(nn.Module):
         '''
         super(VAELoss, self).__init__()
         self.sample_z = sample_z
-        self.bce_loss = nn.BCELoss(size_average = True) #following mkusner/grammarVAE, earlier was False)
+        self.bce_loss = nn.BCELoss(size_average = True) #following mkusner/grammarVAE
         self.KL_weight = KL_weight
         if grammar is not None:
             self.masks = FloatTensor(grammar.masks)
@@ -66,16 +69,14 @@ class VAELoss(nn.Module):
         batch_size = target_x.size()[0]
         seq_len = target_x.size()[1]
         z_size = mu.size()[1]
-        if self.masks is not None:
+        if False: #self.masks is not None:
             model_out_x = apply_masks(target_x,
                                   model_out_x,
                                   self.masks,
                                   self.ind_to_lhs_ind
                                   )
         model_out_x = F.softmax(model_out_x, dim=2)
-        # Was
-        #BCE = self.bce_loss(model_out_x, target_x) / (seq_len * batch_size)
-        # now like this, following mkusner/grammarVAE
+        #following mkusner/grammarVAE
         BCE = seq_len * self.bce_loss(model_out_x, target_x)
         # this normalizer is for when we're not sampling so only have mus, not sigmas
         avg_mu = torch.sum(mu, dim=0) / batch_size
@@ -102,10 +103,6 @@ class VAELoss(nn.Module):
         self.metrics =OrderedDict([('BCE', BCE.data.item()),
                                    ('KLD', KLD_),
                                    ('ME', mom_err.data.item())])
-                                   # ('FV', FV)])#,
-                                   # ('avg_len', avg_len),
-                                   # ('max_len',max_len)])
-        #print(self.metrics)
         return my_loss
 
 
