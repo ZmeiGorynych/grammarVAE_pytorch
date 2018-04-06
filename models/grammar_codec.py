@@ -4,7 +4,7 @@ import numpy as np
 
 import grammarVAE_pytorch.models.grammar_helper as grammar_helper
 from grammarVAE_pytorch.models.grammar_mask_gen import GrammarMaskGenerator
-from grammarVAE_pytorch.models.reinforcement.reinforcement import SimpleDiscreteDecoder, OneStepDecoderContinuous
+from grammarVAE_pytorch.models.decoders import OneStepDecoderContinuous, SimpleDiscreteDecoder
 from grammarVAE_pytorch.models.policy import SoftmaxRandomSamplePolicy
 from grammarVAE_pytorch.models.codec import GenericCodec
 
@@ -31,35 +31,29 @@ class GrammarModel(GenericCodec):
             self.vae = model
             self.vae.eval()
             self.decoder = self.vae.decoder
-        # self.mask_gen = GrammarMaskGenerator(self.MAX_LEN, grammar=self.grammar)
-        # policy = SoftmaxRandomSamplePolicy()
-        # stepper = OneStepDecoderContinuous(self.vae.decoder)
-        # self.decoder = SimpleDiscreteDecoder(stepper, policy, self.mask_gen, bypass_actions = True)
 
-
-    def string_to_one_hot(self, smiles):
+    def string_to_actions(self, smiles):
         """ Encode a list of smiles strings into the latent space """
         assert type(smiles) == list
         tokens = map(self._tokenize, smiles)
         parse_trees = [next(self._parser.parse(t)) for t in tokens]
         productions_seq = [tree.productions() for tree in parse_trees]
-        indices = [np.array([self._prod_map[prod] for prod in entry], dtype=int) for entry in productions_seq]
-        one_hot = np.zeros((len(indices), self.MAX_LEN, self._n_chars), dtype=np.float32)
-        for i in range(len(indices)):
-            num_productions = len(indices[i])
-            one_hot[i][np.arange(num_productions), indices[i]] = 1.
-            one_hot[i][np.arange(num_productions, self.MAX_LEN), -1] = 1.
-        #self.one_hot = one_hot
+        actions = [[self._prod_map[prod] for prod in entry] for entry in productions_seq]
+        # now extend them to max length
+        actions = np.array([a + [self._n_chars-1]*(self.MAX_LEN - len(a)) for a in actions])
+        return actions
+    # TODO: move to superclass
+    def actions_to_one_hot(self, actions):
+        one_hot = np.zeros((len(actions), self.MAX_LEN, self._n_chars), dtype=np.float32)
+        for i in range(len(actions)):
+            num_productions = len(actions[i])
+            one_hot[i][np.arange(num_productions), actions[i]] = 1.
+            #one_hot[i][np.arange(num_productions, self.MAX_LEN), -1] = 1.
         return one_hot
+    # todo: move to supeclass
+    def string_to_one_hot(self, smiles):
+        return self.actions_to_one_hot(self.string_to_actions(smiles))
 
-    # def string_to_actions(self,smiles):
-    #     """ Encode a list of smiles strings into the latent space """
-    #     assert type(smiles) == list
-    #     tokens = map(self._tokenize, smiles)
-    #     parse_trees = [next(self._parser.parse(t)) for t in tokens]
-    #     productions_seq = [tree.productions() for tree in parse_trees]
-    #     indices = [np.array([self._prod_map[prod] for prod in entry], dtype=int) for entry in productions_seq]
-    # # TODO: move to superclass?
 
     def decode_from_actions(self, actions):
         '''

@@ -47,7 +47,7 @@ class SoftmaxRandomSamplePolicy(SimplePolicy):
 
 class PolicyFromTarget(SimplePolicy):
     '''
-    Just returns the next row from a target one-hot sequence - useful for computing losses for encoders
+    Just returns the next row from a target int sequence - useful for computing losses for encoders
     '''
     def __init__(self, target):
         super().__init__()

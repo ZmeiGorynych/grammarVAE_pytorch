@@ -1,9 +1,9 @@
 import torch
-from torch.autograd import Variable
-import torch.nn as nn
-from basic_pytorch.gpu_utils import FloatTensor, to_gpu
+from torch import nn as nn
+
+from basic_pytorch.gpu_utils import to_gpu, FloatTensor
 from grammarVAE_pytorch.models.codec import to_one_hot
-from grammarVAE_pytorch.models.policy import SimplePolicy, SoftmaxRandomSamplePolicy, PolicyFromTarget
+from grammarVAE_pytorch.models.policy import SimplePolicy
 
 
 class OneStepDecoder(nn.Module):
@@ -50,6 +50,7 @@ class OneStepDecoder(nn.Module):
             return out
         else:
             raise StopIteration()
+
 
 class OneStepDecoderUsingAction(OneStepDecoder):
     def __init__(self, model, max_len=None, num_actions = None):
@@ -114,27 +115,6 @@ class OneStepDecoderContinuous(OneStepDecoder):
             raise StopIteration()
 
 
-class DummyMaskGenerator(nn.Module):
-    def __init__(self, num_actions):
-        super().__init__()
-        self.num_actions = num_actions
-
-    def forward(self, last_action):
-        '''
-        Consumes one action at a time, responds with the mask for next action
-        : param last_action: ints of shape (batch_size) previous action ; should be [None]*batch_size for the very first step
-        '''
-        return to_gpu(torch.ones(len(last_action),self.num_actions))
-
-    def reset(self):
-        '''
-        Reset any internal state, in order to start on a new sequence
-        :return:
-        '''
-        pass
-
-
-
 class SimpleDiscreteDecoder(nn.Module):
     def __init__(self, stepper:OneStepDecoder, policy: SimplePolicy, mask_gen = None, bypass_actions=False):
         '''
@@ -185,76 +165,3 @@ class SimpleDiscreteDecoder(nn.Module):
         out_actions_all = torch.cat(out_actions, 1)
         out_logits_all = torch.cat(out_logits, 1)
         return out_actions_all, out_logits_all
-
-
-# TODO: model already outputs values!
-class ReinforcementModel(nn.Module):
-    '''
-    Creates targets from a one-step iteration of the Bellman equation
-    '''
-    def __init__(self, discrete_decoder: SimpleDiscreteDecoder):
-        super().__init__()
-        self.decoder = discrete_decoder
-
-    def forward(self, z, actions, sample_ind, values):
-        '''
-        Calculates targets and values for simple deepQ-learning
-        :param z: latent variable input for decoder, batch_size x z_size
-        :param actions: History of past decoding actions, batch_size x max_len x num_actions
-        :param sample_ind: Index we want to sample each sequence at, batch_size
-        :param values: Value of objective function where sequence comleted, None otherwise : batch_size
-        :return: values: value of action at sample_ind predicted by decoder value; targets: one-step Bellman equation target
-        '''
-        batch_size = len(z)
-        self.decoder.policy = PolicyFromTarget(actions)
-        _, logits = self.decoder.forward(z)
-        targets = Variable(FloatTensor(batch_size))
-        values = Variable(FloatTensor(batch_size))
-        for n in range(batch_size):
-            # the value of the action chosen at the sampled step for that sequence
-            values[n] = (logits[n,sample_ind[n]]*actions[n,sample_ind[n],:]).sum()
-            if values[n] is None:
-                # one step
-                targets[n] = torch.max(logits[n, sample_ind[n]+1, :])
-            else:
-                targets[n] = values[n]
-
-
-        return values, targets
-
-class ReinforcementLoss(nn.Module):
-    def forward(self, outputs, targets):
-        '''
-        A reinforcement learning loss. As both predicted Q and target Q estimated as max from next step
-        come from the model itself, the 'targets' are ignored
-        :param outputs:
-        :param targets:
-        :return:
-        '''
-        predicted_Q, target_Q = outputs
-        target_Q.detach()
-        diff = predicted_Q - target_Q
-        return torch.sum(diff * diff)
-
-class DummyNNModel(nn.Module):
-    def __init__(self, max_len, num_actions):
-        super().__init__()
-        self.max_len = max_len
-        self.num_actions = num_actions
-
-    def forward(self, z):
-        return to_gpu(torch.randn(len(z), self.max_len, self.num_actions))
-
-if __name__ == '__main__':
-    batch_size = 25
-    max_len = 10
-    num_actions = 15
-    latent_size = 20
-
-    policy = SoftmaxRandomSamplePolicy()
-    mask_gen = DummyMaskGenerator(num_actions)
-    stepper = OneStepDecoderContinuous(DummyNNModel(max_len, num_actions))
-    decoder = SimpleDiscreteDecoder(stepper,policy,mask_gen)
-    z = torch.randn(batch_size, latent_size)
-    out_actions, out_logits = decoder(z)
-    print('success!')

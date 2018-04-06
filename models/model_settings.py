@@ -7,7 +7,8 @@ from grammarVAE_pytorch.models.grammar_helper import grammar_eq, grammar_zinc
 from grammarVAE_pytorch.models.grammar_mask_gen import GrammarMaskGenerator
 from basic_pytorch.models.rnn_models import SimpleRNNDecoder, SimpleRNNAttentionEncoder, ResettingRNNDecoder
 from grammarVAE_pytorch.models.encoders import SimpleCNNEncoder
-from grammarVAE_pytorch.models.reinforcement.reinforcement import SimpleDiscreteDecoder, OneStepDecoderContinuous, OneStepDecoder, OneStepDecoderUsingAction
+from grammarVAE_pytorch.models.decoders import OneStepDecoder, OneStepDecoderUsingAction, OneStepDecoderContinuous, \
+    SimpleDiscreteDecoder
 from grammarVAE_pytorch.models.policy import SoftmaxRandomSamplePolicy
 from basic_pytorch.gpu_utils import to_gpu
 # in the desired end state, this file will contain every single difference between the different models
@@ -113,14 +114,17 @@ def get_model_args(molecules, grammar,
     return model_args
 
 
-def get_model(molecules=True, grammar = True, weights_file=None, **kwargs):
+def get_model(molecules=True, grammar = True, weights_file=None, epsilon_std =1, **kwargs):
     model_args = get_model_args(molecules=molecules, grammar=grammar)
     for key, value in kwargs.items():
         if key in model_args:
             model_args[key] = value
     sample_z = model_args.pop('sample_z')
     encoder, decoder = get_encoder_decoder(molecules,grammar,**model_args)
-    model = models_torch.GrammarVariationalAutoEncoder(encoder=encoder, decoder=decoder, sample_z=sample_z)
+    model = models_torch.GrammarVariationalAutoEncoder(encoder=encoder,
+                                                       decoder=decoder,
+                                                       sample_z=sample_z,
+                                                       epsilon_std=epsilon_std)
 
     if weights_file is not None:
         model.load(weights_file)

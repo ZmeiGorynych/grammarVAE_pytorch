@@ -11,13 +11,23 @@ from basic_pytorch.gpu_utils import FloatTensor, LongTensor, to_gpu
 
 
 class GrammarVariationalAutoEncoder(nn.Module):
-    def __init__(self, encoder = None,
-                 decoder = None,
-                 sample_z = True):
+    def __init__(self, encoder=None,
+                 decoder=None,
+                 sample_z=True,
+                 epsilon_std=0.01):
+        '''
+        Initialize the autoencoder
+        :param encoder: A model mapping batches of one-hot sequences (batch x seq x num_actions) to latent mu, std
+        :param decoder: Model mapping latent z (batch x z_size) to  batches of one-hot sequences, and corresponding logits
+        :param sample_z: Whether to sample z = N(mu, std) or just take z=mu
+        :param epsilon_std: Scaling factor for samling, low values help convergence
+        https://github.com/mkusner/grammarVAE/issues/7
+        '''
         super(GrammarVariationalAutoEncoder, self).__init__()
         self.sample_z = sample_z
         self.encoder = to_gpu(encoder)
         self.decoder = to_gpu(decoder)
+        self.epsilon_std = epsilon_std
 
     def forward(self, x):
 
@@ -28,7 +38,8 @@ class GrammarVariationalAutoEncoder(nn.Module):
         else:
             z = mu
         # need to re-trace the path taken by the training input
-        _,x_actions = torch.max(x,-1)
+        # this also takes care of masking
+        _, x_actions = torch.max(x,-1) # argmax
         self.decoder.policy = PolicyFromTarget(x_actions)
         actions, output = self.decoder(z)
         return output, mu, log_var
@@ -36,7 +47,7 @@ class GrammarVariationalAutoEncoder(nn.Module):
     def sample(self, mu, log_var):
         """you generate a random distribution w.r.t. the mu and log_var from the embedding space."""
         vector_size = log_var.size()
-        eps = Variable(FloatTensor(vector_size).normal_())
+        eps = self.epsilon_std*Variable(FloatTensor(vector_size).normal_())
         std = log_var.mul(0.5).exp_()
         return eps.mul(std).add_(mu)
 
@@ -69,12 +80,12 @@ class VAELoss(nn.Module):
         batch_size = target_x.size()[0]
         seq_len = target_x.size()[1]
         z_size = mu.size()[1]
-        if False: #self.masks is not None:
-            model_out_x = apply_masks(target_x,
-                                  model_out_x,
-                                  self.masks,
-                                  self.ind_to_lhs_ind
-                                  )
+        # if False: #self.masks is not None:
+        #     model_out_x = apply_masks(target_x,
+        #                           model_out_x,
+        #                           self.masks,
+        #                           self.ind_to_lhs_ind
+        #                           )
         model_out_x = F.softmax(model_out_x, dim=2)
         #following mkusner/grammarVAE
         BCE = seq_len * self.bce_loss(model_out_x, target_x)
@@ -105,31 +116,31 @@ class VAELoss(nn.Module):
                                    ('ME', mom_err.data.item())])
         return my_loss
 
-
-def apply_masks(x_true, x_pred, masks, ind_to_lhs_ind):
-    '''
-    Apply grammar transition rules to a softmax matrix, given a one-hot target
-    :param x_true: Variable of actual transitions, one-hot encoded, batch x sequence x element
-    :param x_pred: Variable of logits, same shape as x_true
-    :return: x_pred with masked logits shifted down by at least -100 below original min()
-    '''
-
-    x_size = x_true.size()
-    mask = to_gpu(torch.ones(*x_size))
-    # adding this to an element will move it to at least min - 100
-    shift_to_tiny = -100 + (x_pred.min() - x_pred.max())
-    for i in range(0,x_size[0]):
-        for j in range(0, x_size[1]):
-            #print(x_true.data[i,j,:])
-            # argmax
-            _,true_rule_ind = torch.max(x_true.data[i,j,:],-1)#[1][0]
-            # look up lhs from true one-hot, mask must be for that lhs
-            mask[i,j,:] = masks[ind_to_lhs_ind[true_rule_ind]]
-
-    # nuke the transitions prohibited if we follow x_true
-    x_resc = x_pred + ( 1 - Variable(mask))*shift_to_tiny
-    # and rescale the softmax to sum=1 again
-    #scaler = torch.sum(x_resc, dim=2, keepdim=True)
-    #scaler2 = torch.cat([scaler]*x_size[2], dim=2)
-    out = x_resc #/(scaler2 + 1e-6)
-    return out
+#
+# def apply_masks(x_true, x_pred, masks, ind_to_lhs_ind):
+#     '''
+#     Apply grammar transition rules to a softmax matrix, given a one-hot target
+#     :param x_true: Variable of actual transitions, one-hot encoded, batch x sequence x element
+#     :param x_pred: Variable of logits, same shape as x_true
+#     :return: x_pred with masked logits shifted down by at least -100 below original min()
+#     '''
+#
+#     x_size = x_true.size()
+#     mask = to_gpu(torch.ones(*x_size))
+#     # adding this to an element will move it to at least min - 100
+#     shift_to_tiny = -100 + (x_pred.min() - x_pred.max())
+#     for i in range(0,x_size[0]):
+#         for j in range(0, x_size[1]):
+#             #print(x_true.data[i,j,:])
+#             # argmax
+#             _,true_rule_ind = torch.max(x_true.data[i,j,:],-1)#[1][0]
+#             # look up lhs from true one-hot, mask must be for that lhs
+#             mask[i,j,:] = masks[ind_to_lhs_ind[true_rule_ind]]
+#
+#     # nuke the transitions prohibited if we follow x_true
+#     x_resc = x_pred + ( 1 - Variable(mask))*shift_to_tiny
+#     # and rescale the softmax to sum=1 again
+#     #scaler = torch.sum(x_resc, dim=2, keepdim=True)
+#     #scaler2 = torch.cat([scaler]*x_size[2], dim=2)
+#     out = x_resc #/(scaler2 + 1e-6)
+#     return out

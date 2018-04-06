@@ -25,7 +25,8 @@ model, fitter, _ = train_vae(molecules=molecules,
                           rnn_encoder=False,
                           lr=5e-4,
                           plot_prefix='baseline lr 5e-4 KLW 0.01',
-                          KL_weight = 0.01,
+                          KL_weight = 1,
+                             epsilon_std = 0.01,
                              dashboard='main')
 
 while True:
