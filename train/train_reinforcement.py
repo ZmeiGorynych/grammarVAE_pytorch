@@ -22,7 +22,7 @@ from basic_pytorch.data_utils.data_sources import IncrementingHDF5Dataset
 from basic_pytorch.visdom_helper.visdom_helper import Dashboard
 from grammarVAE_pytorch.train.main_train_vae import train_vae
 from grammarVAE_pytorch.train.main_train_reinforcement import train_reinforcement
-from grammarVAE_pytorch.models.model_settings import get_settings
+from grammarVAE_pytorch.models.model_settings import get_settings, get_model
 from grammarVAE_pytorch.models.grammar_codec import GrammarModel, eq_tokenizer, zinc_tokenizer
 from grammarVAE_pytorch.models.reinforcement import ReinforcementModel
 from grammarVAE_pytorch.models.rdkit_utils import fraction_valid
@@ -34,36 +34,18 @@ settings = get_settings(molecules, grammar)
 
 dash_name = 'test'
 visdom = Dashboard(dash_name)
-model, fitter, main_dataset = train_vae(molecules=True,
-                          grammar=True,
-                          BATCH_SIZE=150,
-                          drop_rate=0.3,
-                          sample_z=True,
-                          save_file='next_gen.h5',
-                          rnn_encoder=False,
-                          lr=5e-4,
-                          plot_prefix='RNN enc lr 1e-4',
-                          dashboard=dash_name,
-                          preload_weights=False)
-
-# this is a wrapper for encoding/decodng
-grammar_model = GrammarModel(max_len=settings['max_seq_length'],
-                                 grammar=settings['grammar'],
-                                 tokenizer=zinc_tokenizer if molecules else eq_tokenizer,
-                                 model=model)
-
-
+model, grammar_model = get_model(molecules, grammar, drop_rate=0.3)
 reinforcement_model = ReinforcementModel(model.decoder)
 valid_smile_ds = IncrementingHDF5Dataset('valid_smiles.h5')
 invalid_smile_ds = IncrementingHDF5Dataset('invalid_smiles.h5')
+original_ds = IncrementingHDF5Dataset('../data/zinc_grammar_dataset.h5')
 
 RL_fitter = train_reinforcement(grammar = grammar,
               model = reinforcement_model,
               EPOCHS = 100,
               BATCH_SIZE = 40,
               lr = 1e-4,
-              main_dataset = main_dataset,
-              new_datasets = (valid_smile_ds, invalid_smile_ds),
+              new_datasets = (valid_smile_ds, invalid_smile_ds, original_ds),
               save_file = None,
               plot_prefix = 'valid_model',
               dashboard = dash_name,
@@ -107,7 +89,7 @@ while True:
         this_len = action_seq_length[np.array(is_valid) == condition]
         append_data ={'smiles': np.array(these_smiles, dtype = 'S'),
                       'actions': these_actions,
-                      'score': np.ones((len(these_smiles)))*(1 if condition else 0),
+                      'valid': np.ones((len(these_smiles)))*(1 if condition else 0),
                       'seq_len': this_len}
         ds.append(append_data)
 

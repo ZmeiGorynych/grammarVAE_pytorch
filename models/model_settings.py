@@ -114,7 +114,7 @@ def get_model_args(molecules, grammar,
     return model_args
 
 
-def get_model(molecules=True, grammar = True, weights_file=None, epsilon_std =1, **kwargs):
+def get_model(molecules=True, grammar = True, weights_file=None, epsilon_std=1, **kwargs):
     model_args = get_model_args(molecules=molecules, grammar=grammar)
     for key, value in kwargs.items():
         if key in model_args:

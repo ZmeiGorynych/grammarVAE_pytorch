@@ -45,6 +45,9 @@ class GenericCodec:
         return out, actions
 
     def action_seq_length(self,these_actions):
+        if 'numpy' in str(type(these_actions)):
+            # TODO: put a numpy-specific version here, not needing pytorch
+            these_actions = LongTensor(these_actions)
         out = LongTensor((len(these_actions)))
         for i in range(len(these_actions)):
             out[i] = torch.nonzero(these_actions[i] == (self._n_chars -1))[0]

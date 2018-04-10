@@ -37,16 +37,15 @@ class MixedLoader:
 
         return gen()
 
-class MixedLoader2:
-    def __init__(self, ds1, ds2, num_batches=100):
+class CombinedLoader:
+    def __init__(self, ds_list, num_batches=100):
         '''
-        Glues together output from 2 loaders: goal is to produce a balanced dataset from the 2 sources
+        Glues together output from a list of loaders: goal is to produce a balanced dataset from the 2 sources
         :param ds1:
         :param ds2:
         '''
-        self.ds1 = ds1
-        self.ds2 = ds2
-        self.batch_size = self.ds1.batch_size
+        self.ds_list = ds_list
+        self.batch_size = self.ds_list[0].batch_size
         self.num_batches = num_batches
 
     def __len__(self):
@@ -54,24 +53,21 @@ class MixedLoader2:
 
     def __iter__(self):
         def gen():
-            iter1 = iter(self.ds1)
-            iter2 = iter(self.ds2)
+            iters = [iter(ds) for ds in self.ds_list]
+            x_list = [None for _ in iters]
             for _ in range(self.num_batches):
-                try:
-                    x1 = next(iter1)
-                except StopIteration:
-                    iter1 = iter(self.ds1)
-                    x1 = next(iter1)
-                try:
-                    x2 = next(iter2)
-                except StopIteration:
-                    iter2 = iter(self.ds2)
-                    x2 = next(iter2)
+                for i in range(len(iters)):
+                    try:
+                        x_list[i] = next(iters[i])
+                    except StopIteration:
+                        iters[i] = iter(self.ds_list[i])
+                        x_list[i] = next(iters[i])
 
-                if type(x1) == tuple or type(x1) == list:
-                    x = tuple(to_gpu(torch.cat([x1_,x2_], dim=0)) for x1_, x2_ in zip(x1,x2))
+                if type(x_list[0]) == tuple or type(x_list[0]) == list:
+                    x = tuple(to_gpu(torch.cat(elem, dim=0)) for elem in zip(*x_list))
                 else:
-                    x = to_gpu(torch.cat([x1,x2], dim=0))
-                yield (x, to_gpu(torch.zeros(1))) # inputs, targets: targets are ignored by the reinf learning algo
+                    x = to_gpu(torch.cat(x_list, dim=0))
+
+                yield (x[0], x[1:])
 
         return gen()
