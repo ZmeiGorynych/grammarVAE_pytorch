@@ -30,7 +30,9 @@ class ReinforcementModel(nn.Module):
         batch_size = len(actions)
         orig_policy = self.decoder.policy
         self.decoder.policy = PolicyFromTarget(actions)
-        _, logits = self.decoder.forward(to_gpu(torch.zeros(batch_size,self.decoder.z_size)))
+        # TODO: replace this ugly ugly hack!
+        true_z_size = 56 # self.decoder.z_size
+        _, logits = self.decoder.forward(to_gpu(torch.zeros(batch_size,true_z_size)))
         self.decoder.policy = orig_policy
         # todo: a better head, now values and policy too entangled
         value_est = logits #F.tanh(logits)

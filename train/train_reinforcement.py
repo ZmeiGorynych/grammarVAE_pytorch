@@ -34,11 +34,12 @@ settings = get_settings(molecules, grammar)
 
 dash_name = 'test'
 visdom = Dashboard(dash_name)
-model, grammar_model = get_model(molecules, grammar, drop_rate=0.3)
+model, grammar_model = get_model(molecules, grammar, drop_rate=0.3, decoder_type='action')
 reinforcement_model = ReinforcementModel(model.decoder)
-valid_smile_ds = IncrementingHDF5Dataset('valid_smiles.h5')
-invalid_smile_ds = IncrementingHDF5Dataset('invalid_smiles.h5')
-original_ds = IncrementingHDF5Dataset('../data/zinc_grammar_dataset.h5')
+h5_prefix = 'new_'
+valid_smile_ds = IncrementingHDF5Dataset(h5_prefix +'valid_smiles.h5')
+invalid_smile_ds = IncrementingHDF5Dataset(h5_prefix + 'invalid_smiles.h5')
+original_ds = IncrementingHDF5Dataset('../data/zinc_grammar_dataset.h5', mode='r')
 
 RL_fitter = train_reinforcement(grammar = grammar,
               model = reinforcement_model,

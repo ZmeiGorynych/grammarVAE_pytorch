@@ -114,13 +114,21 @@ def get_model_args(molecules, grammar,
     return model_args
 
 
-def get_model(molecules=True, grammar = True, weights_file=None, epsilon_std=1, **kwargs):
+def get_model(molecules=True,
+              grammar = True,
+              weights_file=None,
+              epsilon_std=1,
+              decoder_type='step',
+              **kwargs):
     model_args = get_model_args(molecules=molecules, grammar=grammar)
     for key, value in kwargs.items():
         if key in model_args:
             model_args[key] = value
     sample_z = model_args.pop('sample_z')
-    encoder, decoder = get_encoder_decoder(molecules,grammar,**model_args)
+    encoder, decoder = get_encoder_decoder(molecules,
+                                           grammar,
+                                           decoder_type=decoder_type,
+                                           **model_args)
     model = models_torch.GrammarVariationalAutoEncoder(encoder=encoder,
                                                        decoder=decoder,
                                                        sample_z=sample_z,
@@ -153,7 +161,8 @@ def get_encoder_decoder(molecules = True,
                                                'dense_size': 100},
                  drop_rate = 0.0,
                  rnn_encoder = False,
-                 rnn_encoder_hidden_n = 200):
+                 rnn_encoder_hidden_n = 200,
+                        decoder_type='step'):
     settings = get_settings(molecules,grammar)
     if rnn_encoder:
         encoder = to_gpu(SimpleRNNAttentionEncoder(max_seq_length=max_seq_length,
@@ -167,7 +176,7 @@ def get_encoder_decoder(molecules = True,
                                                z_size=z_size,
                                                feature_len=feature_len,
                                                drop_rate=drop_rate))
-    decoder_type = 'step'
+
     if decoder_type=='old':
         pre_decoder = ResettingRNNDecoder(z_size=z_size,
                                            hidden_n=decoder_hidden_n,

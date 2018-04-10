@@ -79,7 +79,8 @@ def train_reinforcement(grammar = True,
         save_path=save_path,
         dashboard=dashboard,
         plot_ignore_initial=plot_ignore_initial,
-                 plot_prefix=plot_prefix)
+                 plot_prefix=plot_prefix,
+                 loss_display_cap=200)
 
     return fitter
 
