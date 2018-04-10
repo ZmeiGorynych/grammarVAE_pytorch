@@ -3,10 +3,10 @@ import torch.optim as optim
 from torch.optim import lr_scheduler
 
 from basic_pytorch.fit import fit
-from basic_pytorch.data_utils.data_sources import train_valid_loaders
+from basic_pytorch.data_utils.data_sources import train_valid_loaders, SamplingWrapper
 from basic_pytorch.gpu_utils import use_gpu
 from grammarVAE_pytorch.models.model_settings import get_settings
-from grammarVAE_pytorch.data_utils.mixed_loader import MixedLoader
+from grammarVAE_pytorch.data_utils.mixed_loader import MixedLoader, MixedLoader2
 from grammarVAE_pytorch.models.reinforcement import ReinforcementLoss
 
 def train_reinforcement(grammar = True,
@@ -14,7 +14,7 @@ def train_reinforcement(grammar = True,
               EPOCHS = None,
               BATCH_SIZE = None,
               lr = 2e-4,
-                   main_dataset = None,
+              main_dataset = None,
               new_datasets = None,
               plot_ignore_initial = 0,
               save_file = None,
@@ -45,16 +45,18 @@ def train_reinforcement(grammar = True,
 
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
-    # create the composite loaders
-    train_loader, valid_loader = train_valid_loaders(main_dataset,
-                                                     valid_fraction=0.1,
-                                                     batch_size=BATCH_SIZE,
-                                                     pin_memory=use_gpu)
+    # # create the composite loaders
+    # train_loader, valid_loader = train_valid_loaders(main_dataset,
+    #                                                  valid_fraction=0.1,
+    #                                                  batch_size=BATCH_SIZE,
+    #                                                  pin_memory=use_gpu)
     valid_smile_ds, invalid_smile_ds = new_datasets
-    valid_train, valid_val = valid_smile_ds.get_train_valid_loaders(BATCH_SIZE)
-    invalid_train, invalid_val = valid_smile_ds.get_train_valid_loaders(BATCH_SIZE)
-    train_gen = MixedLoader(train_loader, valid_train, invalid_train)
-    valid_gen = MixedLoader(valid_loader, valid_val, invalid_val)
+    valid_train, valid_val = SamplingWrapper(valid_smile_ds).get_train_valid_loaders(BATCH_SIZE,
+                                                                    dataset_name=['actions','seq_len','score','sample_seq_ind'])
+    invalid_train, invalid_val = SamplingWrapper(valid_smile_ds).get_train_valid_loaders(BATCH_SIZE,
+                                                                    dataset_name=['actions','seq_len','score','sample_seq_ind'])
+    train_gen = MixedLoader2(valid_train, invalid_train)
+    valid_gen = MixedLoader2(valid_val, invalid_val)
 
     scheduler = lr_scheduler.ReduceLROnPlateau(optimizer,
                                                factor=0.2,

@@ -12,7 +12,12 @@ class GenericCodec:
         return z_mean
 
     def decode(self, z):
-        actions, logits = self.decoder(z)
+        '''
+        Converts a batch of latent vectors into a batch of action ints
+        :param z: batch x z_size
+        :return: smiles: list(str) of len batch, actions: LongTensor batch_size x max_seq_len
+        '''
+        actions, logits = self.decoder(to_gpu(z))
         smiles = self.decode_from_actions(actions)
         return smiles, actions
 
@@ -38,6 +43,12 @@ class GenericCodec:
         if numpy_output:
             actions = actions.cpu().numpy()
         return out, actions
+
+    def action_seq_length(self,these_actions):
+        out = LongTensor((len(these_actions)))
+        for i in range(len(these_actions)):
+            out[i] = torch.nonzero(these_actions[i] == (self._n_chars -1))[0]
+        return out
 
 def to_one_hot(y, n_dims=None, out = None):
     """

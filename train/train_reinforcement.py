@@ -2,13 +2,21 @@
 
 # One upside for calling this as shell script rather than as 'python x.py' is that
 # you can see the script name in top/ps - useful when you have a bunch of python processes
-
+import sys
 try:
     import grammarVAE_pytorch
 except:
-    import sys, os, inspect
+    import os, inspect
     my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     sys.path.append('../..')
+import os
+# # fix for a PyCharm bug for DLL import
+# os.environ['CONDA_PREFIX'] = 'C:/Users/egork/Anaconda3/envs/torch/'
+# from subprocess import call
+# call(["C:/Users/egork/Anaconda3/envs/torch/Scripts/activate.bat", 'torch'])
+# sys.path.append('C:/Users/egork/Anaconda3/envs/torch/DLLs')
+# sys.path.append('C:/Users/egork/Anaconda3/envs/torch/Scripts')
+# sys.path.append('C:\\Users\\egork\\Anaconda3\\envs\\torch\\Lib\\site-packages\\rdkit')
 import torch
 from basic_pytorch.data_utils.data_sources import IncrementingHDF5Dataset
 from basic_pytorch.visdom_helper.visdom_helper import Dashboard
@@ -46,8 +54,8 @@ grammar_model = GrammarModel(max_len=settings['max_seq_length'],
 
 
 reinforcement_model = ReinforcementModel(model.decoder)
-valid_smile_ds = IncrementingHDF5Dataset('valid_smiles.h5', valid_frac=0.1)
-invalid_smile_ds = IncrementingHDF5Dataset('invalid_smiles.h5', valid_frac=0.1)
+valid_smile_ds = IncrementingHDF5Dataset('valid_smiles.h5')
+invalid_smile_ds = IncrementingHDF5Dataset('invalid_smiles.h5')
 
 RL_fitter = train_reinforcement(grammar = grammar,
               model = reinforcement_model,
@@ -61,16 +69,18 @@ RL_fitter = train_reinforcement(grammar = grammar,
               dashboard = dash_name,
               preload_weights=False)
 
-# TODO: collect the smiles strings too, just for kicks, into hdf5!
-# f_valid = open("valid_1.smi", "a+")
-# f_invalid = open("invalid_1.smi",'a+')
 count = 0
 sm_metrics = None
+have_visdom = True
 while True:
     # this does one train step
-    next(fitter)
+    #next(fitter)
     mock_latent_points = torch.zeros(size=(100,settings['z_size']))#np.random.normal(size=(100,settings['z_size']))
-    mock_smiles, mock_actions = grammar_model.decode_ext(mock_latent_points, validate=False, max_attempts=1)
+    mock_smiles, mock_actions = grammar_model.decode(mock_latent_points)
+    action_seq_length = grammar_model.action_seq_length(mock_actions)
+    mock_actions = mock_actions.cpu().numpy()
+    action_seq_length = action_seq_length.cpu().numpy()
+
     if len([s for s in mock_smiles if s == '']):
         raise ValueError("With the new masking, sequences should always complete!")
 
@@ -80,19 +90,25 @@ while True:
         sm_metrics = metrics
     else:
         sm_metrics = [0.9*sm + 0.1*m for sm,m in zip(sm_metrics,metrics)]
-    visdom.append('molecule validity',
-               'line',
-               X=np.array([count]),
-               Y=np.array([sm_metrics]),
-               opts={'legend': ['num_valid','avg_len','max_len']})
+
+    if have_visdom:
+        try:
+            visdom.append('molecule validity',
+                       'line',
+                       X=np.array([count]),
+                       Y=np.array([sm_metrics]),
+                       opts={'legend': ['num_valid','avg_len','max_len']})
+        except:
+            have_visdom = False
 
     for condition, ds in (True, valid_smile_ds), (False, invalid_smile_ds):
         these_smiles = [smile for smile, valid in zip(mock_smiles,is_valid) if valid==condition]
-        these_actions = mock_actions[np.array(is_valid)==condition]
-        append_data ={'smiles': these_smiles,
+        these_actions = mock_actions[np.array(is_valid) == condition]
+        this_len = action_seq_length[np.array(is_valid) == condition]
+        append_data ={'smiles': np.array(these_smiles, dtype = 'S'),
                       'actions': these_actions,
                       'score': np.ones((len(these_smiles)))*(1 if condition else 0),
-                      'len': get_length_from_actions(these_actions)}
+                      'seq_len': this_len}
         ds.append(append_data)
 
     next(RL_fitter)

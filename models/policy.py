@@ -55,6 +55,9 @@ class PolicyFromTarget(SimplePolicy):
         self.n = 0
 
     def forward(self, logits):
-        out = self.target[:,self.n]
-        self.n += 1
-        return out
+        if self.n < self.target.shape[1]:
+            out = self.target[:,self.n]
+            self.n += 1
+            return out
+        else:
+            raise StopIteration
