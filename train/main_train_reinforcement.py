@@ -55,10 +55,11 @@ def train_reinforcement(grammar = True,
     for ds in new_datasets:
         train_loader, valid_loader = SamplingWrapper(ds)\
                         .get_train_valid_loaders(BATCH_SIZE,
-                            dataset_name=['actions','seq_len','valid','sample_seq_ind'])
+                            dataset_name=['actions','seq_len','valid','sample_seq_ind'],
+                                                 window=1000)
         train_l.append(train_loader)
         valid_l.append(valid_loader)
-    train_gen = CombinedLoader(train_l, num_batches=100)
+    train_gen = CombinedLoader(train_l, num_batches=90)
     valid_gen = CombinedLoader(valid_l, num_batches=10)
 
     scheduler = lr_scheduler.ReduceLROnPlateau(optimizer,
