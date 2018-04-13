@@ -6,6 +6,7 @@ from grammarVAE_pytorch.models.codec import to_one_hot
 from grammarVAE_pytorch.models.policy import SimplePolicy
 
 
+# TODO: merge this and UsingAction, make UsingAction into a bool
 class OneStepDecoder(nn.Module):
     '''
     One step of a decoder into a discrete space, suitable for use with autoencoders
@@ -74,15 +75,14 @@ class OneStepDecoderUsingAction(OneStepDecoder):
         :return: FloatTensor((batch_size x num_actions)), an unmasked vector of logits over next actions
         '''
         if self.n < self.max_len:
-            if True:#type(action)== list or len(action.shape) == 1: # if the actions came encoded as ints
-                if action is not None and action[0] is not None: # if not first call
-                    self.one_hot_action = to_one_hot(action,
-                                                n_dims=self.num_actions,
-                                                out = self.one_hot_action)
-                model_input = torch.cat([self.z,self.one_hot_action], 1)
-            # else: # if the actions already came encoded as one-hot
-            #     model_input = torch.cat([self.z, action], 1)
-            out = self.model(model_input)
+            if action is not None and action[0] is not None: # if not first call
+                self.one_hot_action = to_one_hot(action,
+                                            n_dims=self.num_actions,
+                                            out=self.one_hot_action)
+            # model_input = torch.cat([self.z,self.one_hot_action], 1)
+            out = self.model(enc_output = self.z,
+                             last_action = self.one_hot_action,
+                             last_action_pos = self.n - 1)
             out = torch.squeeze(out, 1)
             self.n += 1
             return out
