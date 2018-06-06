@@ -42,8 +42,8 @@ def train_reinforcement(grammar = True,
             model.load(save_path)
         except:
             pass
-
-    optimizer = optim.Adam(model.parameters(), lr=lr)
+    nice_params = filter(lambda p: p.requires_grad, model.parameters())
+    optimizer = optim.Adam(nice_params, lr=lr)
 
     # # create the composite loaders
     # train_loader, valid_loader = train_valid_loaders(main_dataset,

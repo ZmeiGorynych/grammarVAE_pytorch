@@ -10,6 +10,7 @@ from grammarVAE_pytorch.models.encoders import SimpleCNNEncoder
 from grammarVAE_pytorch.models.decoders import OneStepDecoder, OneStepDecoderContinuous, \
     SimpleDiscreteDecoder
 from grammarVAE_pytorch.models.policy import SoftmaxRandomSamplePolicy
+from transformer.OneStepAttentionDecoder import SelfAttentionDecoderStep
 from basic_pytorch.gpu_utils import to_gpu
 # in the desired end state, this file will contain every single difference between the different models
 
@@ -184,22 +185,29 @@ def get_encoder_decoder(molecules = True,
                                            max_seq_length=max_seq_length,
                                            drop_rate=drop_rate)
         stepper = OneStepDecoderContinuous(pre_decoder)
-    elif decoder_type=='step':
-        pre_decoder = SimpleRNNDecoder(z_size=z_size,
-                                          hidden_n=decoder_hidden_n,
-                                          feature_len=feature_len,
-                                          max_seq_length=1,
-                                          drop_rate=drop_rate,
-                                       use_last_action=False)
+    else:
+        if decoder_type=='step':
+            pre_decoder = SimpleRNNDecoder(z_size=z_size,
+                                              hidden_n=decoder_hidden_n,
+                                              feature_len=feature_len,
+                                              max_seq_length=1,
+                                              drop_rate=drop_rate,
+                                           use_last_action=False)
+
+        elif decoder_type=='action':
+            pre_decoder = SimpleRNNDecoder(z_size=z_size + feature_len,
+                                           hidden_n=decoder_hidden_n,
+                                           feature_len=feature_len,
+                                           max_seq_length=1,
+                                           drop_rate=drop_rate,
+                                           use_last_action=True)
+        elif decoder_type == 'attention':
+            pre_decoder = SelfAttentionDecoderStep(num_actions=feature_len,
+                                                   max_seq_len=max_seq_length,
+                                                   drop_rate=drop_rate)
+
         stepper = OneStepDecoder(pre_decoder, max_len=max_seq_length)
-    elif decoder_type=='action':
-        pre_decoder = SimpleRNNDecoder(z_size=z_size + feature_len,
-                                       hidden_n=decoder_hidden_n,
-                                       feature_len=feature_len,
-                                       max_seq_length=1,
-                                       drop_rate=drop_rate,
-                                       use_last_action=True)
-        stepper = OneStepDecoder(pre_decoder, max_len=max_seq_length)
+
     if grammar:
         mask_gen = GrammarMaskGenerator(max_seq_length, grammar=settings['grammar'])
     else:

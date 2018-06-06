@@ -56,8 +56,8 @@ def train_vae(molecules = True,
     #         model.load(save_path)
     #     except:
     #         pass
-
-    optimizer = optim.Adam(model.parameters(), lr=lr)
+    nice_params = filter(lambda p: p.requires_grad, model.parameters())
+    optimizer = optim.Adam(nice_params, lr=lr)
 
     # TODO: create this outside and pass in?
     main_dataset = DatasetFromHDF5(settings['data_path'],'data')

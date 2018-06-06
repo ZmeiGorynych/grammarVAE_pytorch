@@ -20,7 +20,7 @@ class OneStepDecoder(nn.Module):
         self.model = to_gpu(model)
         self.model.eval()
         self.max_len = max_len
-        self.z_size = model.z_size
+        #self.z_size = model.z_size
 
     def init_latent(self, z):
         '''
@@ -29,6 +29,7 @@ class OneStepDecoder(nn.Module):
         :return: None
         '''
         self.z = z
+        self.z_size = z.size()[-1]
         self.n = 0
         try:
             self.model.reset_state()
@@ -128,7 +129,7 @@ class SimpleDiscreteDecoder(nn.Module):
         '''
         super().__init__()
         self.stepper = to_gpu(stepper)
-        self.z_size = self.stepper.z_size
+        #self.z_size = self.stepper.z_size
         self.policy = policy
         self.mask_gen = mask_gen
         self.bypass_actions = bypass_actions
