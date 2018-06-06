@@ -2,18 +2,15 @@ import torch
 from torch import nn as nn
 
 from basic_pytorch.gpu_utils import to_gpu, FloatTensor
-from grammarVAE_pytorch.models.codec import to_one_hot
 from grammarVAE_pytorch.models.policy import SimplePolicy
-
 
 # TODO: merge this and UsingAction, make UsingAction into a bool
 class OneStepDecoder(nn.Module):
     '''
     One step of a decoder into a discrete space, suitable for use with autoencoders
     (so the encoded state is a vector not a sequence)
-
     '''
-    def __init__(self, model, max_len = None):
+    def __init__(self, model, max_len=None):
         '''
         Base class for doing the differentiable part of one decoding step
         :param model: a differentiable model used in the steps
@@ -46,7 +43,10 @@ class OneStepDecoder(nn.Module):
         :return: FloatTensor((batch_size x num_actions)), an unmasked vector of logits over next actions
         '''
         if self.n < self.max_len:
-            out = self.model(self.z)
+            #out = self.model(self.z)
+            out = self.model(enc_output=self.z,
+                             last_action=action,
+                             last_action_pos=self.n - 1)
             out = torch.squeeze(out,1)
             self.n += 1
             return out
@@ -54,40 +54,40 @@ class OneStepDecoder(nn.Module):
             raise StopIteration()
 
 
-class OneStepDecoderUsingAction(OneStepDecoder):
-    def __init__(self, model, max_len=None, num_actions = None):
-        '''
-        Base class for doing the differentiable part of one decoding step
-        :param model: a differentiable model used in the steps
-        '''
-        super().__init__(model, max_len)
-        self.num_actions = num_actions
-
-    def init_latent(self, z):
-        super().init_latent(z)
-        self.one_hot_action = to_gpu(torch.zeros(len(self.z), self.num_actions))
-
-    def forward(self, action):
-        '''
-        # the differentiable part of one decoding step
-        :param action: LongTensor((batch_size)), last discrete action chosen by the policy,
-        None for the very first action choice
-        :return: FloatTensor((batch_size x num_actions)), an unmasked vector of logits over next actions
-        '''
-        if self.n < self.max_len:
-            if action is not None and action[0] is not None: # if not first call
-                self.one_hot_action = to_one_hot(action,
-                                            n_dims=self.num_actions,
-                                            out=self.one_hot_action)
-            # model_input = torch.cat([self.z,self.one_hot_action], 1)
-            out = self.model(enc_output = self.z,
-                             last_action = self.one_hot_action,
-                             last_action_pos = self.n - 1)
-            out = torch.squeeze(out, 1)
-            self.n += 1
-            return out
-        else:
-            raise StopIteration()
+# class OneStepDecoderUsingAction(OneStepDecoder):
+#     def __init__(self, model, max_len=None, num_actions = None):
+#         '''
+#         Base class for doing the differentiable part of one decoding step
+#         :param model: a differentiable model used in the steps
+#         '''
+#         super().__init__(model, max_len)
+#         self.num_actions = num_actions
+#
+#     def init_latent(self, z):
+#         super().init_latent(z)
+#         self.one_hot_action = to_gpu(torch.zeros(len(self.z), self.num_actions))
+#
+#     def forward(self, action):
+#         '''
+#         # the differentiable part of one decoding step
+#         :param action: LongTensor((batch_size)), last discrete action chosen by the policy,
+#         None for the very first action choice
+#         :return: FloatTensor((batch_size x num_actions)), an unmasked vector of logits over next actions
+#         '''
+#         if self.n < self.max_len:
+#             if action is not None and action[0] is not None: # if not first call
+#                 self.one_hot_action = to_one_hot(action,
+#                                             n_dims=self.num_actions,
+#                                             out=self.one_hot_action)
+#             # model_input = torch.cat([self.z,self.one_hot_action], 1)
+#             out = self.model(enc_output = self.z,
+#                              last_action = self.one_hot_action,
+#                              last_action_pos = self.n - 1)
+#             out = torch.squeeze(out, 1)
+#             self.n += 1
+#             return out
+#         else:
+#             raise StopIteration()
 
 
 class OneStepDecoderContinuous(OneStepDecoder):
@@ -104,7 +104,7 @@ class OneStepDecoderContinuous(OneStepDecoder):
 
     def forward(self, action=None):
         '''
-
+        Gets the output sequence all at once, then feeds it back one step at a time
         :param action: ignored
         :return: a vector of logits over next actions
         '''

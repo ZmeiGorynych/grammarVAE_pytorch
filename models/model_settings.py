@@ -7,7 +7,7 @@ from grammarVAE_pytorch.models.grammar_helper import grammar_eq, grammar_zinc
 from grammarVAE_pytorch.models.grammar_mask_gen import GrammarMaskGenerator
 from basic_pytorch.models.rnn_models import SimpleRNNDecoder, SimpleRNNAttentionEncoder, ResettingRNNDecoder
 from grammarVAE_pytorch.models.encoders import SimpleCNNEncoder
-from grammarVAE_pytorch.models.decoders import OneStepDecoder, OneStepDecoderUsingAction, OneStepDecoderContinuous, \
+from grammarVAE_pytorch.models.decoders import OneStepDecoder, OneStepDecoderContinuous, \
     SimpleDiscreteDecoder
 from grammarVAE_pytorch.models.policy import SoftmaxRandomSamplePolicy
 from basic_pytorch.gpu_utils import to_gpu
@@ -189,17 +189,17 @@ def get_encoder_decoder(molecules = True,
                                           hidden_n=decoder_hidden_n,
                                           feature_len=feature_len,
                                           max_seq_length=1,
-                                          drop_rate=drop_rate)
+                                          drop_rate=drop_rate,
+                                       use_last_action=False)
         stepper = OneStepDecoder(pre_decoder, max_len=max_seq_length)
     elif decoder_type=='action':
         pre_decoder = SimpleRNNDecoder(z_size=z_size + feature_len,
                                        hidden_n=decoder_hidden_n,
                                        feature_len=feature_len,
                                        max_seq_length=1,
-                                       drop_rate=drop_rate)
-        stepper = OneStepDecoderUsingAction(pre_decoder,
-                                            max_len=max_seq_length,
-                                            num_actions=feature_len)
+                                       drop_rate=drop_rate,
+                                       use_last_action=True)
+        stepper = OneStepDecoder(pre_decoder, max_len=max_seq_length)
     if grammar:
         mask_gen = GrammarMaskGenerator(max_seq_length, grammar=settings['grammar'])
     else:
