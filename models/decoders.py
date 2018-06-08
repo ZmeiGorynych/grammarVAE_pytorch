@@ -32,7 +32,7 @@ class OneStepDecoder(nn.Module):
         self.z_size = z.size()[-1]
         self.n = 0
         try:
-            self.model.reset_state()
+            self.model.init_encoder_output(z)
         except:
             pass
 
@@ -45,8 +45,7 @@ class OneStepDecoder(nn.Module):
         '''
         if self.n < self.max_len:
             #out = self.model(self.z)
-            out = self.model(enc_output=self.z,
-                             last_action=action,
+            out = self.model(last_action=action,
                              last_action_pos=self.n - 1)
             out = torch.squeeze(out,1)
             self.n += 1

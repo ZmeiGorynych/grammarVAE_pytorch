@@ -55,6 +55,7 @@ def train_reinforcement(grammar = True,
     for ds in new_datasets:
         train_loader, valid_loader = SamplingWrapper(ds)\
                         .get_train_valid_loaders(BATCH_SIZE,
+                                                 valid_batch_size = 1+int(BATCH_SIZE/3),
                             dataset_name=['actions','seq_len','valid','sample_seq_ind'],
                                                  window=1000)
         train_l.append(train_loader)
