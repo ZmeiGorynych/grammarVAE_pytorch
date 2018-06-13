@@ -2,8 +2,8 @@
 # sys.path.append('..')
 import os, inspect
 import numpy as np
-from grammarVAE_pytorch.models.model_settings import get_settings, get_model
-from basic_pytorch.gpu_utils import to_gpu
+from generative_playground.models.model_settings import get_settings, get_model
+from generative_playground.gpu_utils import to_gpu
 import torch
 
 # We load the auto-encoder

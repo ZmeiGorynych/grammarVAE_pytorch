@@ -18,11 +18,11 @@ import os
 # sys.path.append('C:/Users/egork/Anaconda3/envs/torch/Scripts')
 # sys.path.append('C:\\Users\\egork\\Anaconda3\\envs\\torch\\Lib\\site-packages\\rdkit')
 import torch
-from basic_pytorch.data_utils.data_sources import IncrementingHDF5Dataset
-from basic_pytorch.visdom_helper.visdom_helper import Dashboard
+from generative_playground.data_utils.data_sources import IncrementingHDF5Dataset
+from generative_playground.visdom_helper.visdom_helper import Dashboard
 from grammarVAE_pytorch.train.main_train_vae import train_vae
 from grammarVAE_pytorch.train.main_train_reinforcement import train_reinforcement
-from grammarVAE_pytorch.models.model_settings import get_settings, get_model
+from generative_playground.models.model_settings import get_settings, get_model
 from grammarVAE_pytorch.models.grammar_codec import GrammarModel, eq_tokenizer, zinc_tokenizer
 from grammarVAE_pytorch.models.reinforcement import ReinforcementModel
 from grammarVAE_pytorch.models.rdkit_utils import fraction_valid

@@ -1,8 +1,7 @@
 import numpy as np
-from grammarVAE_pytorch.models.decoders import OneStepDecoderContinuous, SimpleDiscreteDecoder
-from grammarVAE_pytorch.models.policy import SoftmaxRandomSamplePolicy
+# from grammarVAE_pytorch.models.decoders import OneStepDecoderContinuous, SimpleDiscreteDecoder
+# from grammarVAE_pytorch.models.policy import SoftmaxRandomSamplePolicy
 from grammarVAE_pytorch.models.codec import GenericCodec
-import torch
 
 class CharacterModel(GenericCodec):
     def __init__(self,

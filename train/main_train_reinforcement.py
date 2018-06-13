@@ -2,12 +2,12 @@ import os, inspect
 import torch.optim as optim
 from torch.optim import lr_scheduler
 
-from basic_pytorch.fit import fit
-from basic_pytorch.data_utils.data_sources import train_valid_loaders, SamplingWrapper
-from basic_pytorch.gpu_utils import use_gpu
-from grammarVAE_pytorch.models.model_settings import get_settings
-from grammarVAE_pytorch.data_utils.mixed_loader import MixedLoader, CombinedLoader
-from grammarVAE_pytorch.models.reinforcement import ReinforcementLoss
+from generative_playground.fit import fit
+from generative_playground.data_utils.data_sources import train_valid_loaders, SamplingWrapper
+from generative_playground.gpu_utils import use_gpu
+from generative_playground.models.model_settings import get_settings
+from generative_playground.data_utils.mixed_loader import CombinedLoader, MixedLoader
+from generative_playground.models.problem.reinforcement import ReinforcementLoss
 
 def train_reinforcement(grammar = True,
               model = None,

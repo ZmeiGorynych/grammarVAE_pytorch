@@ -10,7 +10,7 @@ except:
     my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     sys.path.append('../..')
 from grammarVAE_pytorch.train.main_train_vae import train_vae
-from grammarVAE_pytorch.models.model_settings import get_settings
+from generative_playground.models.model_settings import get_settings
 
 molecules = True
 grammar = True

@@ -8,8 +8,8 @@ except:
     my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     sys.path.append('../..')
 
-from grammarVAE_pytorch.models.model_settings import get_settings, get_model
-from basic_pytorch.data_utils.data_sources import IncrementingHDF5Dataset
+from generative_playground.models.model_settings import get_settings, get_model
+from generative_playground.data_utils.data_sources import IncrementingHDF5Dataset
 # change this to true to produce the equation dataset
 molecules = True
 # change this to True to get string-based encodings instead of grammar-based

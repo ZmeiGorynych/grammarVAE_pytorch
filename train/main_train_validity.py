@@ -3,13 +3,11 @@ import torch.optim as optim
 from torch.optim import lr_scheduler
 import torch.nn as nn
 
-from grammarVAE_pytorch.models.grammar_helper import grammar_eq, grammar_zinc
-from grammarVAE_pytorch.models.variational_autoencoder import GrammarVariationalAutoEncoder, VAELoss
-from basic_pytorch.fit import fit
-from basic_pytorch.data_utils.data_sources import DatasetFromHDF5, train_valid_loaders, DuplicateIter
-from basic_pytorch.gpu_utils import use_gpu
-from grammarVAE_pytorch.models.model_settings import get_settings, get_model_args
-from grammarVAE_pytorch.data_utils.mixed_loader import MixedLoader
+from generative_playground.fit import fit
+from generative_playground.data_utils.data_sources import train_valid_loaders, DuplicateIter
+from generative_playground.gpu_utils import use_gpu
+from generative_playground.models.model_settings import get_settings
+from generative_playground.data_utils.mixed_loader import MixedLoader
 
 def train_validity(grammar = True,
               model = None,

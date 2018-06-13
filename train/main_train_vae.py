@@ -2,11 +2,11 @@ import os, inspect
 import torch.optim as optim
 from torch.optim import lr_scheduler
 
-from grammarVAE_pytorch.models.variational_autoencoder import VAELoss
-from basic_pytorch.fit import fit
-from basic_pytorch.data_utils.data_sources import DatasetFromHDF5, train_valid_loaders, DuplicateIter
-from basic_pytorch.gpu_utils import use_gpu
-from grammarVAE_pytorch.models.model_settings import get_settings, get_model
+from generative_playground.models.problem.variational_autoencoder import VAELoss
+from generative_playground.fit import fit
+from generative_playground.data_utils.data_sources import DatasetFromHDF5, train_valid_loaders, DuplicateIter
+from generative_playground.gpu_utils import use_gpu
+from generative_playground.models.model_settings import get_settings, get_model
 
 
 def train_vae(molecules = True,
