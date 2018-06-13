@@ -21,6 +21,7 @@ def train_vae(molecules = True,
               sample_z = True,
               save_file = None,
               rnn_encoder=False,
+              decoder_type='step',
               plot_prefix = '',
               dashboard = 'main',
               preload_weights=False):
@@ -46,6 +47,7 @@ def train_vae(molecules = True,
                         drop_rate=drop_rate,
                         sample_z = sample_z,
                         rnn_encoder=rnn_encoder,
+                        decoder_type = decoder_type,
                         weights_file=save_path if preload_weights else None,
                         epsilon_std=0.01
                         )

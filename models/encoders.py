@@ -40,6 +40,11 @@ class SimpleCNNEncoder(nn.Module):
         self.fc_var = nn.Linear(self.dense_size, z_size)
 
     def forward(self, x):
+        '''
+
+        :param x: Sequence to encode, batch_size x seq_len x d_input floats or batch_size x seq_len ints
+        :return:
+        '''
         batch_size = x.size()[0]
         # Conv1D expects dimension batch x channels x feature
         # we treat the one-hot encoding as channels, but only convolve one channel at a time?
@@ -59,7 +64,7 @@ class SimpleCNNEncoder(nn.Module):
 
     def encode(self,x):
         '''
-
+        Why is it needed?
         :param x: a numpy array batch x seq x feature
         :return:
         '''

@@ -11,6 +11,7 @@ from grammarVAE_pytorch.models.decoders import OneStepDecoder, OneStepDecoderCon
     SimpleDiscreteDecoder
 from grammarVAE_pytorch.models.policy import SoftmaxRandomSamplePolicy
 from transformer.OneStepAttentionDecoder import SelfAttentionDecoderStep
+from transformer.Models import Encoder
 from basic_pytorch.gpu_utils import to_gpu
 # in the desired end state, this file will contain every single difference between the different models
 
@@ -165,18 +166,24 @@ def get_encoder_decoder(molecules = True,
                  rnn_encoder_hidden_n = 200,
                         decoder_type='step'):
     settings = get_settings(molecules,grammar)
-    if rnn_encoder:
+    if rnn_encoder == True:
         encoder = to_gpu(SimpleRNNAttentionEncoder(max_seq_length=max_seq_length,
                                                         z_size=z_size,
                                                         hidden_n=rnn_encoder_hidden_n,
                                                         feature_len=feature_len,
                                                         drop_rate=drop_rate))
-    else:
+    elif rnn_encoder == False:
         encoder = to_gpu(SimpleCNNEncoder(params=cnn_encoder_params,
                                                max_seq_length=max_seq_length,
                                                z_size=z_size,
                                                feature_len=feature_len,
                                                drop_rate=drop_rate))
+    elif rnn_encoder == 'attention':
+        encoder = to_gpu(Encoder(feature_len,
+                                 max_seq_length,
+                                 z_size=z_size,
+                                 dropout=drop_rate,
+                                 padding_idx=feature_len-1))
 
     if decoder_type=='old':
         pre_decoder = ResettingRNNDecoder(z_size=z_size,

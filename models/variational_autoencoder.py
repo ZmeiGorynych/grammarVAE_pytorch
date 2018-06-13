@@ -30,8 +30,19 @@ class GrammarVariationalAutoEncoder(nn.Module):
         self.epsilon_std = epsilon_std
 
     def forward(self, x):
+        log_var = None
+        out = self.encoder(x)
+        if isinstance(out,tuple) or isinstance(out, list):
+            mu = out[0]
+            if len(out)>1:
+                log_var = out[1]
+        else:
+            mu = out
 
-        mu, log_var = self.encoder(x)
+
+        if len(mu.size())==3: # if we got a whole sequence
+            mu = mu[:, -1, :] # take the last element
+
         # only sample when training, I regard sampling as a regularization technique so unneeded during validation
         if self.sample_z and self.training:
             z = self.sample(mu, log_var)

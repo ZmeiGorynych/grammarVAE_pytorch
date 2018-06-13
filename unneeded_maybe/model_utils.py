@@ -14,7 +14,6 @@ def many_one_hot(indices, d):
     return oh
 
 
-
 def one_hot_index(vec, charset):
     return map(charset.index, vec)
 

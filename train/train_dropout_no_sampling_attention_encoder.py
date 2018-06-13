@@ -17,14 +17,15 @@ molecules = True
 grammar = True
 settings = get_settings(molecules,grammar)
 
-save_file =settings['filename_stub'] + 'dr0.5_rnnenc_no_sampl.h5'
+save_file =settings['filename_stub'] + 'dr0.5_attention_no_sampl.h5'
 
-model, fitter, main_dataset = train_vae(molecules=molecules,
-                          BATCH_SIZE=150,
+model, fitter, train_dataset = train_vae(molecules=molecules,
+                          BATCH_SIZE=10,
                           drop_rate=0.4,
                           save_file=save_file,
                           sample_z=False,
-                          rnn_encoder=True,
+                          rnn_encoder='attention',
+                          decoder_type='attention',
                           lr=5e-4,
                           plot_prefix='rnn do=0.3 no_sam 5e-4')
 
