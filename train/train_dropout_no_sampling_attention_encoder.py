@@ -25,7 +25,7 @@ model, fitter, train_dataset = train_vae(molecules=molecules,
                           drop_rate=0.4,
                           save_file=save_file,
                           sample_z=False,
-                          rnn_encoder='attention', # cnn, rnn, attention
+                          rnn_encoder='cnn', # cnn, rnn, attention
                           decoder_type='step',
                           lr=5e-4,
                           plot_prefix='rnn do=0.3 no_sam 5e-4')

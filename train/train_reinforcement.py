@@ -24,7 +24,7 @@ from grammarVAE_pytorch.train.main_train_vae import train_vae
 from grammarVAE_pytorch.train.main_train_reinforcement import train_reinforcement
 from generative_playground.models.model_settings import get_settings, get_model
 from grammarVAE_pytorch.models.grammar_codec import GrammarModel, eq_tokenizer, zinc_tokenizer
-from grammarVAE_pytorch.models.reinforcement import ReinforcementModel
+from generative_playground.models.problem.rl.reinforcement import ReinforcementModel
 from grammarVAE_pytorch.models.rdkit_utils import fraction_valid
 import numpy as np
 
@@ -34,7 +34,10 @@ settings = get_settings(molecules, grammar)
 
 dash_name = 'test'
 visdom = Dashboard(dash_name)
-model, grammar_model = get_model(molecules, grammar, drop_rate=0.5, decoder_type='attention') # or 'action','old','step','attention'
+model, grammar_model = get_model(molecules,
+                                 grammar,
+                                 drop_rate=0.5,
+                                 decoder_type='old') # or 'action','old','step','attention'
 reinforcement_model = ReinforcementModel(model.decoder)
 h5_prefix = 'new3_'
 valid_smile_ds = IncrementingHDF5Dataset(h5_prefix +'valid_smiles.h5')
