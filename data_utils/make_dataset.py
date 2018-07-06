@@ -1,6 +1,5 @@
-import os, inspect
 import numpy as np
-import h5py
+
 try:
     import grammarVAE_pytorch
 except:
@@ -14,7 +13,8 @@ except:
 
 from generative_playground.models.model_settings import get_settings, get_model
 from generative_playground.data_utils.data_sources import IncrementingHDF5Dataset
-from grammarVAE_pytorch.data_utils.get_score_components import get_score_components
+from grammarVAE_pytorch.rdkit_utils.rdkit_utils import get_score_components
+
 # change this to true to produce the equation dataset
 molecules = True
 # change this to True to get string-based encodings instead of grammar-based

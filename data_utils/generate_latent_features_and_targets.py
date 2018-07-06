@@ -4,7 +4,7 @@ import os, inspect
 import h5py
 import sys
 
-from grammarVAE_pytorch.data_utils.get_score_components import get_score_components
+from grammarVAE_pytorch.rdkit_utils.rdkit_utils import get_score_components
 
 my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 sys.path.insert(0, my_location + '/../')

@@ -13,7 +13,7 @@ from deep_rl import Config
 import torch
 from generative_playground.models.problem.rl.network_heads import CategoricalActorCriticNet
 from grammarVAE_pytorch.train.run_iterations import run_iterations
-from grammarVAE_pytorch.rdkit_utils.rdkit_utils import num_atoms
+from grammarVAE_pytorch.rdkit_utils.rdkit_utils import num_atoms, NormalizedScorer
 from generative_playground.models.problem.rl.DeepRL_wrappers import BodyAdapter, MyA2CAgent
 from generative_playground.models.problem.rl.task import SequenceGenerationTask
 from generative_playground.models.model_settings import get_settings
@@ -35,16 +35,29 @@ def reward_length(smiles):
     atoms = num_atoms(smiles)
     return [-1 if num is None else num for num in atoms]
 
-batch_size = 20
+
+
+batch_size = 100
 drop_rate = 0.3
 molecules = True
 grammar = True
 settings = get_settings(molecules, grammar)
+max_steps = 50 #settings['max_seq_length']
+invalid_value = -7.0
+
+task = SequenceGenerationTask(molecules = molecules,
+                              grammar = grammar,
+                              reward_fun = NormalizedScorer(settings['data_path'],
+                                                            invalid_value=invalid_value),
+                              batch_size = batch_size,
+                              max_steps=50)
 
 if grammar:
-    mask_gen = GrammarMaskGenerator(settings['max_seq_length'], grammar=settings['grammar'])
+    mask_gen = GrammarMaskGenerator(task.env._max_episode_steps, grammar=settings['grammar'])
 else:
     mask_gen = None
+
+
 
 def a2c_sequence(name = 'a2c_sequence', task=None, body=None):
     config = Config()
@@ -72,33 +85,30 @@ def a2c_sequence(name = 'a2c_sequence', task=None, body=None):
     config.max_steps = 100000
     dash_name = 'DeepRL'
     visdom = Dashboard(dash_name)
-    run_iterations(MyA2CAgent(config), visdom)
+    run_iterations(MyA2CAgent(config), visdom, invalid_value=invalid_value)
 
 
 
 
-task = SequenceGenerationTask(molecules = molecules,
-                              grammar = grammar,
-                              reward_fun = reward_length,
-                              batch_size = batch_size)
+
 #
 #
 # decoder = SelfAttentionDecoderStep(num_actions=task.env.action_dim,
 #                                        max_seq_len=task.env._max_episode_steps,
 #                                        drop_rate=drop_rate)
 
-# from generative_playground.models.decoder.basic_rnn import SimpleRNNDecoder
-# decoder = SimpleRNNDecoder(z_size=5,
-#                                hidden_n=512,
-#                                feature_len=task.env.action_dim,
-#                                max_seq_length=task.env._max_episode_steps,  # TODO: WHY???
-#                                drop_rate=drop_rate,
-#                                use_last_action=True)
+from generative_playground.models.decoder.basic_rnn import SimpleRNNDecoder
+decoder = SimpleRNNDecoder(z_size=5,
+                               hidden_n=512,
+                               feature_len=task.env.action_dim,
+                               max_seq_length=task.env._max_episode_steps,  # TODO: WHY???
+                               drop_rate=drop_rate,
+                               use_last_action=True)
 
-from transformer.OneStepAttentionDecoder import SelfAttentionDecoderStep
-decoder = SelfAttentionDecoderStep(num_actions=task.env.action_dim,
-                                       max_seq_len=task.env._max_episode_steps,
-                                       drop_rate=drop_rate)
+# from transformer.OneStepAttentionDecoder import SelfAttentionDecoderStep
+# decoder = SelfAttentionDecoderStep(num_actions=task.env.action_dim,
+#                                        max_seq_len=task.env._max_episode_steps,
+#                                        drop_rate=drop_rate)
 
 
 body = BodyAdapter(decoder)
