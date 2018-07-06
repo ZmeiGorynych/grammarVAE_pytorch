@@ -82,18 +82,24 @@ task = SequenceGenerationTask(molecules = molecules,
                               reward_fun = reward_length,
                               batch_size = batch_size)
 #
-# from transformer.OneStepAttentionDecoder import SelfAttentionDecoderStep
+#
 # decoder = SelfAttentionDecoderStep(num_actions=task.env.action_dim,
 #                                        max_seq_len=task.env._max_episode_steps,
 #                                        drop_rate=drop_rate)
 
-from generative_playground.models.decoder.basic_rnn import SimpleRNNDecoder
-decoder = SimpleRNNDecoder(z_size=5,
-                               hidden_n=512,
-                               feature_len=task.env.action_dim,
-                               max_seq_length=task.env._max_episode_steps,  # TODO: WHY???
-                               drop_rate=drop_rate,
-                               use_last_action=True)
+# from generative_playground.models.decoder.basic_rnn import SimpleRNNDecoder
+# decoder = SimpleRNNDecoder(z_size=5,
+#                                hidden_n=512,
+#                                feature_len=task.env.action_dim,
+#                                max_seq_length=task.env._max_episode_steps,  # TODO: WHY???
+#                                drop_rate=drop_rate,
+#                                use_last_action=True)
+
+from transformer.OneStepAttentionDecoder import SelfAttentionDecoderStep
+decoder = SelfAttentionDecoderStep(num_actions=task.env.action_dim,
+                                       max_seq_len=task.env._max_episode_steps,
+                                       drop_rate=drop_rate)
+
 
 body = BodyAdapter(decoder)
 
