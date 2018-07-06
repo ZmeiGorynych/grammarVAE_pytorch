@@ -14,3 +14,13 @@ def mol_from_smiles(smiles):
     else: # assume we have a list-like
         return [MolFromSmiles(s) for s in smiles]
 
+def num_atoms(smiles):
+    '''
+    Returns number of atoms in each molecule if valid, None otherwise
+    :param smiles: list of strings
+    :return: list of float or None, same length
+    '''
+    mols = mol_from_smiles(smiles)
+    sizes = [None if m is None else len(m.GetAtoms()) for m in mols]
+    return sizes
+
