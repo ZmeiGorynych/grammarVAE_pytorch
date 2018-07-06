@@ -15,12 +15,13 @@ from grammarVAE_pytorch.train.main_train_vae import train_vae
 from generative_playground.models.model_settings import get_settings
 
 molecules = True
-grammar = True
+grammar = False
 settings = get_settings(molecules,grammar)
 
 save_file =settings['filename_stub'] + 'dr0.4_attention.h5'
 
 model, fitter, train_dataset = train_vae(molecules=molecules,
+                                         grammar=grammar,
                           BATCH_SIZE=10,
                           drop_rate=0.4,
                           save_file=save_file,

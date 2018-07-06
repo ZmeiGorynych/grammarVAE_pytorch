@@ -4,7 +4,7 @@ import os, inspect
 import h5py
 import sys
 
-from grammarVAE_pytorch.bayesian_opt.get_score_components import get_score_components
+from grammarVAE_pytorch.data_utils.get_score_components import get_score_components
 
 my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 sys.path.insert(0, my_location + '/../')
@@ -43,7 +43,7 @@ if __name__ == '__main__':
             raw_scores += [get_score_components(s) for s in smiles_chunk]
 
     latent_points = np.concatenate(latent_points)
-    raw_scores = np.array(raw_scores)
+    raw_scores = h5f['raw_scores']
 
     logP_values = raw_scores[:,0]
     SA_scores = raw_scores[:,1]
@@ -54,7 +54,7 @@ if __name__ == '__main__':
     cycle_scores_normalized = (np.array(cycle_scores) - np.mean(cycle_scores)) / np.std(cycle_scores)
 
     # We store the results
-    with h5py.File(data_dir + 'zinc_grammar_latent_and_scores.h5', 'w') as h5f:
+    with h5py.File(data_dir + 'zinc_grammar_latent.h5', 'w') as h5f:
 
             h5f.create_dataset('scores', data=raw_scores,
                                compression="gzip",

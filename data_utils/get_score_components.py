@@ -2,7 +2,7 @@ import networkx as nx
 from rdkit.Chem import Descriptors, rdmolops
 from rdkit.Chem.rdmolfiles import MolFromSmiles
 
-from bayesian_opt import sascorer
+import grammarVAE_pytorch.data_utils.sascorer as sascorer
 
 
 def get_score_components(smiles):

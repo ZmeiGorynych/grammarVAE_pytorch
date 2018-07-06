@@ -49,6 +49,25 @@ class GenericCodec:
             these_actions = LongTensor(these_actions)
         out = LongTensor((len(these_actions)))
         for i in range(len(these_actions)):
-            out[i] = torch.nonzero(these_actions[i] == (self._n_chars -1))[0]
+            if these_actions[i][-1] == self._n_chars -1:
+                out[i] = torch.nonzero(these_actions[i] == (self._n_chars -1))[0]
+            else:
+                out[i] = len(these_actions[i])
         return out
+
+    def actions_to_one_hot(self, actions):
+        '''
+
+        :param actions: batch_size x max_seq_len np.array(int)
+        :return:
+        '''
+        one_hot = np.zeros((len(actions), self.MAX_LEN, self._n_chars), dtype=np.float32)
+        for i in range(len(actions)):
+            num_productions = len(actions[i])
+            one_hot[i][np.arange(num_productions), actions[i]] = 1.
+        return one_hot
+
+    # todo: move to supeclass
+    def string_to_one_hot(self, smiles):
+        return self.actions_to_one_hot(self.string_to_actions(smiles))
 

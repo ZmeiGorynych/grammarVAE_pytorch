@@ -7,9 +7,14 @@ except:
     import os, inspect, sys
     my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     sys.path.append('../..')
+try:
+    import transformer
+except:
+    sys.path.append('../../attention-is-all-you-need-pytorch')
 
 from generative_playground.models.model_settings import get_settings, get_model
 from generative_playground.data_utils.data_sources import IncrementingHDF5Dataset
+from grammarVAE_pytorch.data_utils.get_score_components import get_score_components
 # change this to true to produce the equation dataset
 molecules = True
 # change this to True to get string-based encodings instead of grammar-based
@@ -32,12 +37,9 @@ for line in f:
 f.close()
 
 # convert to one-hot and save, in small increments to save RAM
-dest_file = dest_file.replace('.h5','_new.h5')
+#dest_file = dest_file.replace('.h5','_new.h5')
 ds = IncrementingHDF5Dataset(dest_file)
 
-
-# TODO: for molecules, also append the score
-# TODO: make sure this also works for char-based models
 step = 100
 for i in range(0, len(L), step):#for i in range(0, 1000, 2000):
     print('Processing: i=[' + str(i) + ':' + str(i + step) + ']')
@@ -50,7 +52,19 @@ for i in range(0, len(L), step):#for i in range(0, 1000, 2000):
                    'valid': np.ones((len(these_smiles))),
                    'seq_len': action_seq_length,
                    'data': onehot}
+    if molecules:
+        raw_scores = np.array([get_score_components(s) for s in these_smiles])
+        append_data['raw_scores'] = raw_scores
+
     ds.append(append_data)
+
+if molecules:
+    # also calculate mean and std of the scores, to use in the ultimate objective
+    raw_scores = np.array(ds.h5f['raw_scores'])
+    score_std = raw_scores.std(0)
+    score_mean = raw_scores.mean(0)
+    ds.append_to_dataset('score_std',score_std)
+    ds.append_to_dataset('score_mean', score_mean)
 
 print('success!')
 

@@ -22,7 +22,7 @@ model, fitter, _ = train_vae(molecules=molecules,
                           BATCH_SIZE=50, # a p2.xlarge won't bear any bigger batches
                           save_file=save_file,
                           sample_z=True,
-                          rnn_encoder=False,
+                          rnn_encoder='cnn',
                           lr=5e-4,
                           plot_prefix='baseline lr 5e-4 KLW 0.01',
                           KL_weight = 1,

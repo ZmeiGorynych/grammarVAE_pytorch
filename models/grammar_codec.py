@@ -39,20 +39,6 @@ class GrammarModel(GenericCodec):
         # now extend them to max length
         actions = np.array([a + [self._n_chars-1]*(self.MAX_LEN - len(a)) for a in actions])
         return actions
-    # TODO: move to superclass
-
-    def actions_to_one_hot(self, actions):
-        one_hot = np.zeros((len(actions), self.MAX_LEN, self._n_chars), dtype=np.float32)
-        for i in range(len(actions)):
-            num_productions = len(actions[i])
-            one_hot[i][np.arange(num_productions), actions[i]] = 1.
-            #one_hot[i][np.arange(num_productions, self.MAX_LEN), -1] = 1.
-        return one_hot
-
-    # todo: move to supeclass
-    def string_to_one_hot(self, smiles):
-        return self.actions_to_one_hot(self.string_to_actions(smiles))
-
 
     def decode_from_actions(self, actions):
         '''
@@ -102,7 +88,6 @@ def get_zinc_tokenizer(cfg):
     return tokenize
 
 zinc_tokenizer = get_zinc_tokenizer(grammar_helper.grammar_zinc.GCFG)
-
 
 def prods_to_eq(prods):
     seq = [prods[0].lhs()]
