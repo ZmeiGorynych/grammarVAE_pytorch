@@ -6,7 +6,7 @@ from generative_playground.fit import fit
 from generative_playground.data_utils.data_sources import SamplingWrapper
 from generative_playground.models.model_settings import get_settings
 from generative_playground.data_utils.mixed_loader import CombinedLoader
-from models.problem.rl.reinforcement import ReinforcementLoss
+from generative_playground.models.problem.rl.reinforcement import ReinforcementLoss
 
 def train_reinforcement(grammar = True,
               model = None,

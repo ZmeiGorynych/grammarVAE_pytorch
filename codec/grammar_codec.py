@@ -2,8 +2,8 @@ import re
 import nltk
 import numpy as np
 
-import grammarVAE_pytorch.models.grammar_helper as grammar_helper
-from grammarVAE_pytorch.models.codec import GenericCodec
+import grammarVAE_pytorch.codec.grammar_helper as grammar_helper
+from grammarVAE_pytorch.codec.codec import GenericCodec
 
 
 class GrammarModel(GenericCodec):

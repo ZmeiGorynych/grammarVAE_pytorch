@@ -9,19 +9,16 @@ except:
     import sys, os, inspect
     my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     sys.path.append('../..')
-from generative_playground.data_utils.data_sources import IncrementingHDF5Dataset, train_valid_loaders, DatasetFromHDF5
+from generative_playground.data_utils.data_sources import IncrementingHDF5Dataset
 from generative_playground.visdom_helper.visdom_helper import Dashboard
 from grammarVAE_pytorch.train.main_train_vae import train_vae
 from grammarVAE_pytorch.train.main_train_validity import train_validity
 from generative_playground.models.model_settings import get_settings
-from grammarVAE_pytorch.models.grammar_codec import ZincGrammarModel
-from grammarVAE_pytorch.models.rdkit_utils import fraction_valid
+from grammarVAE_pytorch.codec.grammar_codec import ZincGrammarModel
+from grammarVAE_pytorch.rdkit_utils.rdkit_utils import fraction_valid
 from generative_playground.models.simple_models import DenseHead
 import numpy as np
-from torch.autograd import Variable
-import torch.nn as nn
-import torch.nn.functional as F
-from generative_playground.gpu_utils import FloatTensor, to_gpu
+from generative_playground.gpu_utils import to_gpu
 
 molecules = True
 grammar = True

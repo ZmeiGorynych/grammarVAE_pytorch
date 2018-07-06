@@ -9,7 +9,6 @@ except:
     import os, inspect
     my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     sys.path.append('../..')
-import os
 # # fix for a PyCharm bug for DLL import
 # os.environ['CONDA_PREFIX'] = 'C:/Users/egork/Anaconda3/envs/torch/'
 # from subprocess import call
@@ -20,12 +19,10 @@ import os
 import torch
 from generative_playground.data_utils.data_sources import IncrementingHDF5Dataset
 from generative_playground.visdom_helper.visdom_helper import Dashboard
-from grammarVAE_pytorch.train.main_train_vae import train_vae
 from grammarVAE_pytorch.train.main_train_reinforcement import train_reinforcement
 from generative_playground.models.model_settings import get_settings, get_model
-from grammarVAE_pytorch.models.grammar_codec import GrammarModel, eq_tokenizer, zinc_tokenizer
 from generative_playground.models.problem.rl.reinforcement import ReinforcementModel
-from grammarVAE_pytorch.models.rdkit_utils import fraction_valid
+from grammarVAE_pytorch.rdkit_utils.rdkit_utils import fraction_valid
 import numpy as np
 
 molecules = True

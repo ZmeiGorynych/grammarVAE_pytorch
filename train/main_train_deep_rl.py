@@ -1,10 +1,26 @@
-import math
-from deep_rl import *
-from grammarVAE_pytorch.models.rdkit_utils import num_atoms
-from models.problem.rl.DeepRL_wrappers import BodyAdapter, MyA2CAgent
-from models.problem.rl.task import SequenceGenerationTask
-from models.model_settings import get_settings
-from grammarVAE_pytorch.models.grammar_mask_gen import GrammarMaskGenerator
+try:
+    import grammarVAE_pytorch
+except:
+    import sys, os, inspect
+    my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+    sys.path.append('../..')
+    sys.path.append('../../DeepRL')
+    sys.path.append('../../generative_playground')
+    sys.path.append('../../transformer_pytorch')
+
+#from deep_rl import *
+from deep_rl import Config
+import torch
+from generative_playground.models.problem.rl.network_heads import CategoricalActorCriticNet
+from grammarVAE_pytorch.train.run_iterations import run_iterations
+from grammarVAE_pytorch.rdkit_utils.rdkit_utils import num_atoms
+from generative_playground.models.problem.rl.DeepRL_wrappers import BodyAdapter, MyA2CAgent
+from generative_playground.models.problem.rl.task import SequenceGenerationTask
+from generative_playground.models.model_settings import get_settings
+from grammarVAE_pytorch.codec.grammar_mask_gen import GrammarMaskGenerator
+from generative_playground.visdom_helper.visdom_helper import Dashboard
+from generative_playground.gpu_utils import to_gpu
+
 
 import logging
 
@@ -19,8 +35,8 @@ def reward_length(smiles):
     atoms = num_atoms(smiles)
     return [-1 if num is None else num for num in atoms]
 
-batch_size = 1024
-drop_rate = 0.2
+batch_size = 20
+drop_rate = 0.3
 molecules = True
 grammar = True
 settings = get_settings(molecules, grammar)
@@ -36,12 +52,12 @@ def a2c_sequence(name = 'a2c_sequence', task=None, body=None):
     config.task_fn = lambda: task
     config.optimizer_fn = lambda params: torch.optim.RMSprop(params, lr=0.0007)
     config.network_fn = lambda state_dim, action_dim: \
-                            CategoricalActorCriticNet(state_dim,
+                            to_gpu(CategoricalActorCriticNet(state_dim,
                                                       action_dim,
                                                       body,
                                                       gpu=0,
-                                                      mask_gen=mask_gen)
-    config.policy_fn = SamplePolicy
+                                                      mask_gen=mask_gen))
+    #config.policy_fn = SamplePolicy # not used
     config.state_normalizer = lambda x: x
     config.reward_normalizer = lambda x: x
     config.discount = 0.99
@@ -54,7 +70,9 @@ def a2c_sequence(name = 'a2c_sequence', task=None, body=None):
     config.logger.info('test')
     config.iteration_log_interval
     config.max_steps = 100000
-    run_iterations(MyA2CAgent(config))
+    dash_name = 'DeepRL'
+    visdom = Dashboard(dash_name)
+    run_iterations(MyA2CAgent(config), visdom)
 
 
 
@@ -71,7 +89,7 @@ task = SequenceGenerationTask(molecules = molecules,
 
 from generative_playground.models.decoder.basic_rnn import SimpleRNNDecoder
 decoder = SimpleRNNDecoder(z_size=5,
-                               hidden_n=256,
+                               hidden_n=512,
                                feature_len=task.env.action_dim,
                                max_seq_length=task.env._max_episode_steps,  # TODO: WHY???
                                drop_rate=drop_rate,
