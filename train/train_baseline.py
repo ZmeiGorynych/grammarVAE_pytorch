@@ -9,6 +9,9 @@ except:
     import sys, os, inspect
     my_location = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     sys.path.append('../..')
+    sys.path.append('../../DeepRL')
+    sys.path.append('../../transformer_pytorch')
+
 from grammarVAE_pytorch.train.main_train_vae import train_vae
 from generative_playground.models.model_settings import get_settings
 
@@ -19,10 +22,11 @@ settings = get_settings(molecules,grammar)
 save_file =settings['filename_stub'] + 'baseline.h5'
 model, fitter, _ = train_vae(molecules=molecules,
                           grammar=grammar,
-                          BATCH_SIZE=50, # a p2.xlarge won't bear any bigger batches
+                          BATCH_SIZE=500, # a p2.xlarge won't bear any bigger batches
                           save_file=save_file,
                           sample_z=True,
                           rnn_encoder='cnn',
+                             decoder_type='step',
                           lr=5e-4,
                           plot_prefix='baseline lr 5e-4 KLW 0.01',
                           KL_weight = 1,

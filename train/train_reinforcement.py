@@ -34,7 +34,7 @@ visdom = Dashboard(dash_name)
 model, grammar_model = get_model(molecules,
                                  grammar,
                                  drop_rate=0.5,
-                                 decoder_type='attention') # or 'action','old','step','attention'
+                                 decoder_type='action') # or 'action','old','step','attention'
 reinforcement_model = ReinforcementModel(model.decoder)
 h5_prefix = 'new4_'
 valid_smile_ds = IncrementingHDF5Dataset(h5_prefix +'valid_smiles.h5')
@@ -44,7 +44,7 @@ original_ds = IncrementingHDF5Dataset('../data/zinc_grammar_dataset.h5', mode='r
 RL_fitter = train_reinforcement(grammar = grammar,
               model = reinforcement_model,
               EPOCHS = 10000,
-              BATCH_SIZE = 40,
+              BATCH_SIZE = 25,
               lr = 1e-4,
               new_datasets = (valid_smile_ds, invalid_smile_ds, original_ds),
               save_file = 'first_reinforcement.h5',
@@ -59,16 +59,19 @@ test_batch_size = 10
 while True:
     # this does one train step
     #next(fitter)
-    mock_latent_points = torch.zeros(size=(test_batch_size,settings['z_size']))#np.random.normal(size=(100,settings['z_size']))
-    mock_smiles, mock_actions = grammar_model.decode(mock_latent_points)
-    action_seq_length = grammar_model.action_seq_length(mock_actions)
-    mock_actions = mock_actions.cpu().numpy()
-    action_seq_length = action_seq_length.cpu().numpy()
+    with torch.no_grad():
+        mock_latent_points = torch.zeros(size=(test_batch_size,settings['z_size']))#np.random.normal(size=(100,settings['z_size']))
+        mock_smiles, mock_actions = grammar_model.decode(mock_latent_points)
+        action_seq_length = grammar_model.action_seq_length(mock_actions)
+        mock_actions = mock_actions.cpu().numpy()
+        action_seq_length = action_seq_length.cpu().numpy()
 
     if len([s for s in mock_smiles if s == '']):
         raise ValueError("With the new masking, sequences should always complete!")
 
     metrics, mols = fraction_valid(mock_smiles) # frac_valid, avg_len, max_len
+
+
     is_valid = [mol is not None for mol in mols]
     if sm_metrics is None:
         sm_metrics = metrics
