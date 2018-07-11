@@ -79,15 +79,15 @@ def train_vae(molecules = True,
     loss_obj = VAELoss(settings['grammar'], sample_z, KL_weight)
 
     fitter = fit(train_gen=train_gen,
-        valid_gen=valid_gen,
-        model=model,
-        optimizer=optimizer,
-        scheduler=scheduler,
-        epochs=settings['EPOCHS'],
-        loss_fn=loss_obj,
-        save_path=save_path,
-        dashboard=dashboard,
-        plot_ignore_initial=plot_ignore_initial,
+                 valid_gen=valid_gen,
+                 model=model,
+                 optimizer=optimizer,
+                 scheduler=scheduler,
+                 epochs=settings['EPOCHS'],
+                 loss_fn=loss_obj,
+                 save_path=save_path,
+                 dashboard_name=dashboard,
+                 plot_ignore_initial=plot_ignore_initial,
                  plot_prefix=plot_prefix)
 
     return model, fitter, main_dataset
